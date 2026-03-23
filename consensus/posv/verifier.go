@@ -201,7 +201,7 @@ func (c *Posv) verifyValidators(chain consensus.ChainReader, header *types.Heade
 	retryCount := 0
 	for retryCount < 2 {
 		// compare penalties computed from state with header.Penalties
-		penalties, err := c.backend.PosvGetPenalties(c, chain.Config(), c.config, chain.Config().Viction, header, chain)
+		penalties, err := c.backend.PosvGetPenalties(c, chain.Config(), header, chain)
 		if err != nil {
 			return err
 		}

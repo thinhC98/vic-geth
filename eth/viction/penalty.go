@@ -12,13 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
-func PenalizeValidatorsDefault(bc *core.BlockChain, c *posv.Posv, config *params.ChainConfig, posvConfig *params.PosvConfig, vicConfig *params.VictionConfig,
-	header *types.Header,
-	chain consensus.ChainReader,
-) ([]common.Address, error) {
+func PenalizeValidatorsDefault(bc *core.BlockChain, c *posv.Posv, config *params.ChainConfig, header *types.Header, chain consensus.ChainReader) ([]common.Address, error) {
 	if bc == nil {
 		return []common.Address{}, fmt.Errorf("blockchain not initialized (block %v)", header.Number)
 	}
+	posvConfig := config.Posv
+	vicConfig := config.Viction
 	// Viction reads signers from the contract using the state trie at the checkpoint block.
 	// This avoids relying on where the BlockSign tx ended up being included.
 	statedb, err := bc.State()
@@ -68,11 +67,10 @@ func PenalizeValidatorsDefault(bc *core.BlockChain, c *posv.Posv, config *params
 	return validators, nil
 }
 
-func PenalizeValidatorsTIPSigning(c *posv.Posv, config *params.ChainConfig, posvConfig *params.PosvConfig, vicConfig *params.VictionConfig,
-	header *types.Header,
-	chain consensus.ChainReader,
-) ([]common.Address, error) {
+func PenalizeValidatorsTIPSigning(c *posv.Posv, config *params.ChainConfig, header *types.Header, chain consensus.ChainReader) ([]common.Address, error) {
 	blockNumber := header.Number.Uint64()
+	posvConfig := config.Posv
+	vicConfig := config.Viction
 	prevCheckpointBlockNumber := blockNumber - posvConfig.Epoch
 	penalties := []common.Address{}
 
@@ -140,7 +138,7 @@ func PenalizeValidatorsTIPSigning(c *posv.Posv, config *params.ChainConfig, posv
 			if blockNumber%vicConfig.ValidatorSignInterval == 0 {
 				mapBlockHash[blockHash] = true
 			}
-			txs, err := c.GetSignDataForBlock(config, vicConfig, header, chain)
+			txs, err := c.GetSignDataForBlock(config, header, chain)
 			if err != nil {
 				return []common.Address{}, err
 			}

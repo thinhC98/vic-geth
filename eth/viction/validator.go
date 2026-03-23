@@ -9,18 +9,15 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
-func GetCreatorAttestorPairs(c *posv.Posv, config *params.ChainConfig, posvConfig *params.PosvConfig,
-	header, checkpointHeader *types.Header,
-) (map[common.Address]common.Address, uint64, error) {
+func GetCreatorAttestorPairs(c *posv.Posv, config *params.ChainConfig, header, checkpointHeader *types.Header) (map[common.Address]common.Address, uint64, error) {
 	number := header.Number.Uint64()
 	validators := posv.ExtractValidatorsFromCheckpointHeader(checkpointHeader)
 	attestorIdxs := posv.ExtractAttestorsFromCheckpointHeader(checkpointHeader)
-	return getCreatorAttestorPairs(config, posvConfig, number, validators, attestorIdxs)
+	return getCreatorAttestorPairs(config, number, validators, attestorIdxs)
 }
 
-func getCreatorAttestorPairs(config *params.ChainConfig, posvConfig *params.PosvConfig,
-	number uint64, validators []common.Address, attestorIdxs []int64,
-) (map[common.Address]common.Address, uint64, error) {
+func getCreatorAttestorPairs(config *params.ChainConfig, number uint64, validators []common.Address, attestorIdxs []int64) (map[common.Address]common.Address, uint64, error) {
+	posvConfig := config.Posv
 	results := map[common.Address]common.Address{}
 	validatorCount := uint64(len(validators))
 	attestorCount := uint64(len(attestorIdxs))

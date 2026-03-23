@@ -31,8 +31,8 @@ func (bc *BlockChain) UpdateM1() error {
 	}
 	log.Info("It's time to update new set of masternodes for the next epoch...")
 
-	contracrAddress := bc.chainConfig.Viction.ValidatorContract
-	if contracrAddress == (common.Address{}) {
+	contractAddress := bc.chainConfig.Viction.ValidatorContract
+	if contractAddress == (common.Address{}) {
 		return fmt.Errorf("validator contract address is not set in chain config")
 	}
 
@@ -44,11 +44,11 @@ func (bc *BlockChain) UpdateM1() error {
 	if err != nil {
 		return fmt.Errorf("failed to get state at current root (block %v): %v", bc.CurrentHeader().Number, err)
 	}
-	candidates = stateDB.VicGetCandidates(contracrAddress)
+	candidates = stateDB.VicGetCandidates(contractAddress)
 
 	var ms []posv.Masternode
 	for _, candidate := range candidates {
-		_, cap := stateDB.VicGetValidatorInfo(contracrAddress, candidate)
+		_, cap := stateDB.VicGetValidatorInfo(contractAddress, candidate)
 
 		//TODO: smart contract shouldn't return "0x0000000000000000000000000000000000000000"
 		if candidate.String() != "0x0000000000000000000000000000000000000000" {

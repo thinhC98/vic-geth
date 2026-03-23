@@ -388,7 +388,7 @@ func (c *Posv) Prepare(chainH consensus.ChainHeaderReader, header *types.Header)
 	if number%c.config.Epoch == 0 {
 		validators := snap.GetSigners()
 		// remove penalized validators in current epoch
-		penalties, err := c.backend.PosvGetPenalties(c, chain.Config(), c.config, chain.Config().Viction, header, chain)
+		penalties, err := c.backend.PosvGetPenalties(c, chain.Config(), header, chain)
 		if err != nil {
 			return err
 		}
@@ -462,7 +462,7 @@ func (c *Posv) Finalize(chain consensus.ChainHeaderReader, header *types.Header,
 				log.Error("No chain reader provided for epoch reward distribution")
 			}
 
-			epochReward, err := c.backend.PosvGetEpochReward(c, config, config.Posv, config.Viction, header, chainReader, state, log.Root())
+			epochReward, err := c.backend.PosvGetEpochReward(c, config, header, chainReader, state, log.Root())
 			if err != nil {
 				log.Warn("Finalize: epoch reward failed", "block", number, "err", err)
 			}

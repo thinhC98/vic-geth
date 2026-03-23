@@ -32,12 +32,11 @@ func (s *Ethereum) PosvGetAttestors(vicConfig *params.VictionConfig, header *typ
 }
 
 // Get block signers from the state.
-func (s *Ethereum) PosvGetBlockSignData(config *params.ChainConfig, vicConfig *params.VictionConfig, header *types.Header,
-	chain consensus.ChainReader,
-) ([]types.Transaction, error) {
+func (s *Ethereum) PosvGetBlockSignData(config *params.ChainConfig, header *types.Header, chain consensus.ChainReader) ([]types.Transaction, error) {
 	if header == nil {
 		return nil, fmt.Errorf("PosvGetBlockSignData: header is nil")
 	}
+	vicConfig := config.Viction
 	blockHash := header.Hash()
 	blockNumber := header.Number
 	block := chain.GetBlock(blockHash, blockNumber.Uint64())
@@ -82,17 +81,14 @@ func (s *Ethereum) PosvGetBlockSignData(config *params.ChainConfig, vicConfig *p
 }
 
 // Get creator-attestor pairs from the state.
-func (s *Ethereum) PosvGetCreatorAttestorPairs(c *posv.Posv, config *params.ChainConfig,
-	header, checkpointHeader *types.Header,
-) (map[common.Address]common.Address, uint64, error) {
-	return viction.GetCreatorAttestorPairs(c, config, config.Posv, header, checkpointHeader)
+func (s *Ethereum) PosvGetCreatorAttestorPairs(c *posv.Posv, config *params.ChainConfig, header, checkpointHeader *types.Header) (map[common.Address]common.Address, uint64, error) {
+	return viction.GetCreatorAttestorPairs(c, config, header, checkpointHeader)
 }
 
 // PosvGetEpochReward calculates and distributes reward at checkpoint block.
-func (s *Ethereum) PosvGetEpochReward(c *posv.Posv, config *params.ChainConfig, posvConfig *params.PosvConfig, vicConfig *params.VictionConfig,
-	header *types.Header,
-	chain consensus.ChainReader, statedb *state.StateDB, logger log.Logger,
-) (*posv.EpochReward, error) {
+func (s *Ethereum) PosvGetEpochReward(c *posv.Posv, config *params.ChainConfig, header *types.Header, chain consensus.ChainReader, statedb *state.StateDB, logger log.Logger) (*posv.EpochReward, error) {
+	posvConfig := config.Posv
+	vicConfig := config.Viction
 	epochRewards := &posv.EpochReward{}
 	blockNumber := header.Number.Uint64()
 
@@ -132,7 +128,7 @@ func (s *Ethereum) PosvGetEpochReward(c *posv.Posv, config *params.ChainConfig, 
 		rewardState = statedb
 	}
 
-	stakeholderRewards, err := viction.CalcRewardsForStakeholders(c, config, posvConfig, vicConfig, header, validatorRewards, rewardState, logger)
+	stakeholderRewards, err := viction.CalcRewardsForStakeholders(c, config, header, validatorRewards, rewardState, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -172,14 +168,11 @@ func (s *Ethereum) PosvDistributeEpochRewards(header *types.Header, state *state
 }
 
 // Get list of validators creating bad block or not creating block at all.
-func (s *Ethereum) PosvGetPenalties(c *posv.Posv, config *params.ChainConfig, posvConfig *params.PosvConfig, vicConfig *params.VictionConfig,
-	header *types.Header,
-	chain consensus.ChainReader,
-) ([]common.Address, error) {
+func (s *Ethereum) PosvGetPenalties(c *posv.Posv, config *params.ChainConfig, header *types.Header, chain consensus.ChainReader) ([]common.Address, error) {
 	if config.IsTIPSigning(header.Number) {
-		return viction.PenalizeValidatorsTIPSigning(c, config, posvConfig, vicConfig, header, chain)
+		return viction.PenalizeValidatorsTIPSigning(c, config, header, chain)
 	}
-	return viction.PenalizeValidatorsDefault(s.BlockChain(), c, config, posvConfig, vicConfig, header, chain)
+	return viction.PenalizeValidatorsDefault(s.BlockChain(), c, config, header, chain)
 }
 
 // Get eligble validators from the state.
@@ -199,17 +192,17 @@ func (s *Ethereum) PosvGetValidators(vicConfig *params.VictionConfig, header *ty
 	if err != nil {
 		return []common.Address{}, fmt.Errorf("failed to get state at header root (block %v): %v", header.Number, err)
 	}
-	contracrAddress := vicConfig.ValidatorContract
-	if contracrAddress == (common.Address{}) {
+	contractAddress := vicConfig.ValidatorContract
+	if contractAddress == (common.Address{}) {
 		return []common.Address{}, viction.ErrNoContractAddress
 	}
-	addresses := state.VicGetCandidates(contracrAddress)
+	addresses := state.VicGetCandidates(contractAddress)
 	candidates := []*posv.ValidatorInfo{}
 	for _, addr := range addresses {
 		if addr == (common.Address{}) {
 			continue
 		}
-		_, cap := state.VicGetValidatorInfo(contracrAddress, addr)
+		_, cap := state.VicGetValidatorInfo(contractAddress, addr)
 		candidates = append(candidates, &posv.ValidatorInfo{Address: addr, Capacity: cap})
 	}
 

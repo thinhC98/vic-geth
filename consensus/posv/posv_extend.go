@@ -59,20 +59,19 @@ type PosvBackend interface {
 	PosvGetAttestors(vicConfig *params.VictionConfig, header *types.Header, validators []common.Address) ([]int64, error)
 
 	// Get block signers from the state.
-	PosvGetBlockSignData(config *params.ChainConfig, vicConfig *params.VictionConfig, header *types.Header, chain consensus.ChainReader) ([]types.Transaction, error)
+	PosvGetBlockSignData(config *params.ChainConfig, header *types.Header, chain consensus.ChainReader) ([]types.Transaction, error)
 
 	// Get creator-attestor pairs from the state.
 	PosvGetCreatorAttestorPairs(c *Posv, config *params.ChainConfig, header, checkpointHeader *types.Header) (map[common.Address]common.Address, uint64, error)
 
 	// Calculate and distribute reward at the end of each epoch.
-	PosvGetEpochReward(c *Posv, config *params.ChainConfig, posvConfig *params.PosvConfig, vicConfig *params.VictionConfig,
-		header *types.Header, chain consensus.ChainReader, state *state.StateDB, logger log.Logger) (*EpochReward, error)
+	PosvGetEpochReward(c *Posv, config *params.ChainConfig, header *types.Header, chain consensus.ChainReader, state *state.StateDB, logger log.Logger) (*EpochReward, error)
 
 	// Add balance rewards to the state (apply the rewards returned by PosvGetEpochReward).
 	PosvDistributeEpochRewards(header *types.Header, state *state.StateDB, epochReward *EpochReward) error
 
 	// Penalize validators for creating bad block or not creating block at all.
-	PosvGetPenalties(c *Posv, config *params.ChainConfig, posvConfig *params.PosvConfig, vicConfig *params.VictionConfig, header *types.Header, chain consensus.ChainReader) ([]common.Address, error)
+	PosvGetPenalties(c *Posv, config *params.ChainConfig, header *types.Header, chain consensus.ChainReader) ([]common.Address, error)
 
 	// Get eligble validators from the state.
 	PosvGetValidators(vicConfig *params.VictionConfig, header *types.Header, chain consensus.ChainReader) ([]common.Address, error)
@@ -176,8 +175,7 @@ func DecodeAttestorsFromHeader(attestorsBuff []byte) []int64 {
 }
 
 // Get all BlockSign transactions for a given block. If it's not cached yet, get it from the state.
-func (c *Posv) GetSignDataForBlock(config *params.ChainConfig, vicConfig *params.VictionConfig, header *types.Header,
-	chain consensus.ChainReader) ([]types.Transaction, error) {
+func (c *Posv) GetSignDataForBlock(config *params.ChainConfig, header *types.Header, chain consensus.ChainReader) ([]types.Transaction, error) {
 	if header == nil {
 		return nil, fmt.Errorf("GetSignDataForBlock: header is nil")
 	}
@@ -187,7 +185,7 @@ func (c *Posv) GetSignDataForBlock(config *params.ChainConfig, vicConfig *params
 			return signers, nil
 		}
 	}
-	signers, err := c.backend.PosvGetBlockSignData(config, vicConfig, header, chain)
+	signers, err := c.backend.PosvGetBlockSignData(config, header, chain)
 	if err != nil {
 		return nil, err
 	}

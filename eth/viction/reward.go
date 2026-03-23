@@ -62,7 +62,7 @@ func CalcRewardsForValidators(
 		blockHashes[i] = h.Hash()
 
 		// Use GetSignDataForBlock so that pre-TIPSigning blocks are filtered by receipt status
-		txs, err := c.GetSignDataForBlock(config, vicConfig, h, chain)
+		txs, err := c.GetSignDataForBlock(config, h, chain)
 		if err != nil {
 			return nil, err
 		}
@@ -131,9 +131,8 @@ func CalcRewardsForValidators(
 	return validatorRewards, nil
 }
 
-func CalcRewardsForStakeholders(c *posv.Posv, config *params.ChainConfig, posvConfig *params.PosvConfig, vicConfig *params.VictionConfig,
-	header *types.Header, validatorRewards map[common.Address]*posv.ValidatorReward, statedb *state.StateDB, logger log.Logger,
-) (map[common.Address]*big.Int, error) {
+func CalcRewardsForStakeholders(c *posv.Posv, config *params.ChainConfig, header *types.Header, validatorRewards map[common.Address]*posv.ValidatorReward, statedb *state.StateDB, logger log.Logger) (map[common.Address]*big.Int, error) {
+	vicConfig := config.Viction
 	stakeholderRewards := make(map[common.Address]*big.Int)
 	blockNumber := header.Number.Uint64()
 	rewardValidatorPercent := vicConfig.RewardValidatorPercent
