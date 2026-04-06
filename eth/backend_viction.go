@@ -24,7 +24,7 @@ const SignMethodHex = "e341eaa4"
 // Get attestors from list of validators at checkpoint block.
 func (s *Ethereum) PosvGetAttestors(vicConfig *params.VictionConfig, header *types.Header, validators []common.Address,
 ) ([]int64, error) {
-	state, err := s.BlockChain().StateAt(header.Root)
+	state, err := s.BlockChain().State()
 	if err != nil {
 		return nil, err
 	}
@@ -45,13 +45,13 @@ func (s *Ethereum) PosvGetBlockSignData(config *params.ChainConfig, header *type
 	}
 	data := []types.Transaction{}
 
-	// Before TIPSigning, block-sign txs are EVM-executed and may fail.
+	// Block-sign txs are EVM-executed and may fail.
 	// Only successful signing txs count toward rewards and penalties.
 	//
 	// On post-Byzantium receipt format, `Receipt.Status` is the correct source
 	// of success/failure. Using `len(PostState)` is unreliable and can misclassify.
 	var receipts types.Receipts
-	if config != nil && !config.IsTIPSigning(blockNumber) {
+	if config != nil {
 		receipts = s.blockchain.GetReceiptsByHash(blockHash)
 	}
 	txs := block.Transactions()
@@ -171,9 +171,9 @@ func (s *Ethereum) PosvDistributeEpochRewards(header *types.Header, state *state
 }
 
 // Get list of validators creating bad block or not creating block at all.
-func (s *Ethereum) PosvGetPenalties(c *posv.Posv, config *params.ChainConfig, header *types.Header, chain consensus.ChainReader) ([]common.Address, error) {
+func (s *Ethereum) PosvGetPenalties(c *posv.Posv, config *params.ChainConfig, header *types.Header, chain consensus.ChainReader, validators []common.Address) ([]common.Address, error) {
 	if config.IsTIPSigning(header.Number) {
-		return viction.PenalizeValidatorsTIPSigning(c, config, header, chain)
+		return viction.PenalizeValidatorsTIPSigning(c, config, header, chain, validators)
 	}
 	return viction.PenalizeValidatorsDefault(s.BlockChain(), c, config, header, chain)
 }

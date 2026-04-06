@@ -113,6 +113,8 @@ var (
 
 	errInvalidBlockAttestor = errors.New("invalid block attestor")
 
+	errInvalidNewAttestors = errors.New("invalid new attestors on checkpoint block")
+
 	// errInvalidVotingChain is returned if an authorization list is attempted to
 	// be modified via out-of-range or non-contiguous headers.
 	errInvalidVotingChain = errors.New("invalid voting chain")
@@ -388,7 +390,7 @@ func (c *Posv) Prepare(chainH consensus.ChainHeaderReader, header *types.Header)
 	if number%c.config.Epoch == 0 {
 		validators := snap.GetSigners()
 		// remove penalized validators in current epoch
-		penalties, err := c.backend.PosvGetPenalties(c, chain.Config(), header, chain)
+		penalties, err := c.backend.PosvGetPenalties(c, chain.Config(), header, chain, validators)
 		if err != nil {
 			return err
 		}
