@@ -1161,6 +1161,21 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	return fields
 }
 
+// enrichRPCHeaderWithPosvSigners adds recovered M1 (creator) and M2 (attestorAddress) for PoSV headers.
+func enrichRPCHeaderWithPosvSigners(engine *posv.Posv, header *types.Header, fields map[string]interface{}) {
+	if engine == nil || header == nil || !header.Posv {
+		return
+	}
+	if creator, err := engine.Author(header); err == nil {
+		fields["creator"] = creator
+	}
+	if len(header.Attestor) > 0 {
+		if attestor, err := engine.Attestor(header); err == nil {
+			fields["attestorAddress"] = attestor
+		}
+	}
+}
+
 // RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
 // returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
 // transaction hashes.
@@ -1202,6 +1217,9 @@ func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool) (map[string]i
 func (s *PublicBlockChainAPI) rpcMarshalHeader(ctx context.Context, header *types.Header) map[string]interface{} {
 	fields := RPCMarshalHeader(header)
 	fields["totalDifficulty"] = (*hexutil.Big)(s.b.GetTd(ctx, header.Hash()))
+	if engine, ok := s.b.Engine().(*posv.Posv); ok {
+		enrichRPCHeaderWithPosvSigners(engine, header, fields)
+	}
 	return fields
 }
 
@@ -1211,6 +1229,9 @@ func (s *PublicBlockChainAPI) rpcMarshalBlock(ctx context.Context, b *types.Bloc
 	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
 	if err != nil {
 		return nil, err
+	}
+	if engine, ok := s.b.Engine().(*posv.Posv); ok {
+		enrichRPCHeaderWithPosvSigners(engine, b.Header(), fields)
 	}
 	if inclTx {
 		fields["totalDifficulty"] = (*hexutil.Big)(s.b.GetTd(ctx, b.Hash()))
