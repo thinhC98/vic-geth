@@ -179,7 +179,7 @@ func DecodeAttestorsFromHeader(attestorsBuff []byte) []int64 {
 func (c *Posv) GetSignDataForBlock(config *params.ChainConfig, vicConfig *params.VictionConfig, header *types.Header,
 	chain consensus.ChainReader) ([]types.Transaction, error) {
 	if header == nil {
-		return nil, fmt.Errorf("GetSignDataForBlock: header is nil")
+		return nil, fmt.Errorf("[PoSV] GetSignDataForBlock: header is nil")
 	}
 	blockHash := header.Hash()
 	if signers, ok := c.BlockSigners.Get(blockHash); ok {
