@@ -33,7 +33,7 @@ func (w *worker) turnCommitNewWorkWithPosv(parentHeader *types.Header) bool {
 
 	c, engineOk := w.engine.(*posv.Posv)
 	if !engineOk {
-		log.Error("Chain has POSV config but consensus engine is not *posv.Posv")
+		log.Error("[Miner] Chain has POSV config but consensus engine is not *posv.Posv")
 		return false
 	}
 	checkPointHeader := posv.GetCheckpointHeader(w.chainConfig.Posv, parentHeader, w.chain, nil)
@@ -41,11 +41,11 @@ func (w *worker) turnCommitNewWorkWithPosv(parentHeader *types.Header) bool {
 	// IsMyTurn returns (inTurn, currentIndex, parentIndex, validatorCount, err).
 	ok, myIdx, parentIdx, nValidators, err := c.IsMyTurn(w.coinbase, parentHeader, validators)
 	if err != nil {
-		log.Warn("[Posv] Failed to trying to commit new work", "err", err)
+		log.Warn("[Miner] Failed to trying to commit new work", "err", err)
 		return false
 	}
 	if !ok {
-		log.Debug("Not in turn to commit new block, waiting")
+		log.Debug("[Miner] Not in turn to commit new block, waiting")
 		// Parent block author not in checkpoint list: only validators[0] is in-turn per IsMyTurn.
 		if parentIdx == -1 {
 			return false
@@ -63,7 +63,7 @@ func (w *worker) turnCommitNewWorkWithPosv(parentHeader *types.Header) bool {
 		if epoch > 0 {
 			nearest := epoch - (parentHeader.Number.Uint64() % epoch)
 			if uint64(h) >= nearest {
-				log.Debug("Near-epoch out-of-turn wait", "parentNum", parentHeader.Number.Uint64(),
+				log.Debug("[Miner] Near-epoch out-of-turn wait", "parentNum", parentHeader.Number.Uint64(),
 					"nearestBlocksToCheckpoint", nearest, "hops", h, "gap", posvWaitPeriodCheckpoint*time.Duration(h))
 				gap = posvWaitPeriodCheckpoint * time.Duration(h)
 			}
@@ -72,11 +72,11 @@ func (w *worker) turnCommitNewWorkWithPosv(parentHeader *types.Header) bool {
 		if waited < 0 {
 			waited = 0
 		}
-		log.Debug("Waiting for turn", "gap", gap, "hops", h, "waited", waited)
+		log.Debug("[Miner] Waiting for turn", "gap", gap, "hops", h, "waited", waited)
 		if gap > waited {
 			return false
 		}
-		log.Debug("Wait enough, sealing now", "waited", waited)
+		log.Debug("[Miner] Wait enough, sealing now", "waited", waited)
 	}
 	return true
 }
@@ -100,7 +100,7 @@ func Hop(len, pre, cur int) int {
 // new head event.
 func (w *worker) commitSpecialTransactions(txs types.Transactions, coinbase common.Address, interrupt *int32) bool {
 	if !w.ensureGasPool() {
-		log.Warn("[POSV commitSpecialTxs] gas pool not ready")
+		log.Warn("[Miner] POSV commitSpecialTransactions: gas pool not ready")
 		return true
 	}
 	if len(txs) == 0 {
@@ -112,21 +112,21 @@ func (w *worker) commitSpecialTransactions(txs types.Transactions, coinbase comm
 			return isNewHead
 		}
 		if w.current.gasPool.Gas() < params.TxGas {
-			log.Warn("Not enough gas for further special transactions", "have", w.current.gasPool, "want", params.TxGas)
+			log.Warn("[Miner] Not enough gas for further special transactions", "have", w.current.gasPool, "want", params.TxGas)
 			break
 		}
 		if tx == nil {
 			continue
 		}
 		if tx.Protected() && !w.chainConfig.IsEIP155(w.current.header.Number) {
-			log.Warn("Ignoring replay protected special transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
+			log.Warn("[Miner] Ignoring replay protected special transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 			continue
 		}
 		// Validate BlockSigner special tx payload and target block range.
 		if tx.To() != nil && w.chainConfig.Viction != nil {
 			if *tx.To() == w.chainConfig.Viction.ValidatorBlockSignContract {
 				if len(tx.Data()) < 68 {
-					log.Warn("Skipping special transaction with invalid BlockSigner payload length", "hash", tx.Hash(), "len", len(tx.Data()))
+					log.Warn("[Miner] Skipping special transaction with invalid BlockSigner payload length", "hash", tx.Hash(), "len", len(tx.Data()))
 					continue
 				}
 				// ABI layout: selector(4) + uint256 blockNumber(32) + bytes32 blockHash(32)
@@ -134,7 +134,7 @@ func (w *worker) commitSpecialTransactions(txs types.Transactions, coinbase comm
 				curr := w.current.header.Number.Uint64()
 				epochRange := w.chainConfig.Posv.Epoch * 2
 				if w.chainConfig.Posv != nil && (blkNumber >= curr || (curr > epochRange && blkNumber <= curr-epochRange)) {
-					log.Debug("Skipping special tx with invalid signed block number", "hash", tx.Hash(), "blkNumber", blkNumber, "current", curr, "epoch", w.chainConfig.Posv.Epoch)
+					log.Debug("[Miner] Skipping special tx with invalid signed block number", "hash", tx.Hash(), "blkNumber", blkNumber, "current", curr, "epoch", w.chainConfig.Posv.Epoch)
 					continue
 				}
 			}
@@ -151,14 +151,14 @@ func (w *worker) commitSpecialTransactions(txs types.Transactions, coinbase comm
 		_, err := w.commitTransaction(tx, coinbase)
 		switch {
 		case errors.Is(err, core.ErrGasLimitReached):
-			log.Warn("[POSV commitSpecialTxs] gas limit exceeded", "sender", from, "txHash", tx.Hash())
+			log.Warn("[Miner] POSV commitSpecialTransactions: gas limit exceeded", "sender", from, "txHash", tx.Hash())
 			return false
 		case errors.Is(err, core.ErrNonceTooLow):
 		case errors.Is(err, core.ErrNonceTooHigh):
 		case errors.Is(err, nil):
 			w.current.tcount++
 		default:
-			log.Warn("[POSV commitSpecialTxs] special tx failed", "hash", tx.Hash(), "sender", from, "err", err)
+			log.Warn("[Miner] POSV commitSpecialTransactions: special tx failed", "hash", tx.Hash(), "sender", from, "err", err)
 		}
 	}
 

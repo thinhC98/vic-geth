@@ -110,7 +110,7 @@ func (miner *Miner) update() {
 				if wasMining {
 					// Resume mining after sync was finished
 					shouldStart = true
-					log.Info("Mining aborted due to sync")
+					log.Info("[Miner] Mining aborted due to sync")
 				}
 			case downloader.FailedEvent:
 				canStart = true
@@ -168,7 +168,7 @@ func (miner *Miner) HashRate() uint64 {
 
 func (miner *Miner) SetExtra(extra []byte) error {
 	if uint64(len(extra)) > params.MaximumExtraDataSize {
-		return fmt.Errorf("extra exceeds max length. %d > %v", len(extra), params.MaximumExtraDataSize)
+		return fmt.Errorf("[Miner] Extra exceeds max length. %d > %v", len(extra), params.MaximumExtraDataSize)
 	}
 	miner.worker.setExtra(extra)
 	return nil

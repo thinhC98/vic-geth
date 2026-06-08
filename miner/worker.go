@@ -241,7 +241,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	// Sanitize recommit interval if the user-specified one is too short.
 	recommit := worker.config.Recommit
 	if recommit < minRecommitInterval {
-		log.Warn("Sanitizing miner recommit interval", "provided", recommit, "updated", minRecommitInterval)
+		log.Warn("[Miner] Sanitizing miner recommit interval", "provided", recommit, "updated", minRecommitInterval)
 		recommit = minRecommitInterval
 	}
 
@@ -415,10 +415,10 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		case interval := <-w.resubmitIntervalCh:
 			// Adjust resubmit interval explicitly by user.
 			if interval < minRecommitInterval {
-				log.Warn("Sanitizing miner recommit interval", "provided", interval, "updated", minRecommitInterval)
+				log.Warn("[Miner] Sanitizing miner recommit interval", "provided", interval, "updated", minRecommitInterval)
 				interval = minRecommitInterval
 			}
-			log.Info("Miner recommit interval update", "from", minRecommit, "to", interval)
+			log.Info("[Miner] Recommit interval update", "from", minRecommit, "to", interval)
 			minRecommit, recommit = interval, interval
 
 			if w.resubmitHook != nil {
@@ -431,11 +431,11 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 				before := recommit
 				target := float64(recommit.Nanoseconds()) / adjust.ratio
 				recommit = recalcRecommit(minRecommit, recommit, target, true)
-				log.Trace("Increase miner recommit interval", "from", before, "to", recommit)
+				log.Trace("[Miner] Increase miner recommit interval", "from", before, "to", recommit)
 			} else {
 				before := recommit
 				recommit = recalcRecommit(minRecommit, recommit, float64(minRecommit.Nanoseconds()), false)
-				log.Trace("Decrease miner recommit interval", "from", before, "to", recommit)
+				log.Trace("[Miner] Decrease miner recommit interval", "from", before, "to", recommit)
 			}
 
 			if w.resubmitHook != nil {
@@ -587,7 +587,7 @@ func (w *worker) taskLoop() {
 			w.pendingMu.Unlock()
 
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
-				log.Warn("Block sealing failed", "err", err)
+				log.Warn("[Miner] Block sealing failed", "err", err)
 			}
 		case <-w.exitCh:
 			interrupt()
@@ -618,7 +618,7 @@ func (w *worker) resultLoop() {
 			task, exist := w.pendingTasks[sealhash]
 			w.pendingMu.RUnlock()
 			if !exist {
-				log.Error("Block found but no relative pending task", "number", block.Number(), "sealhash", sealhash, "hash", hash)
+				log.Error("[Miner] Block found but no relative pending task", "number", block.Number(), "sealhash", sealhash, "hash", hash)
 				continue
 			}
 			// [POSV] self-attest: when this node is both the block creator (M1) and
@@ -647,17 +647,17 @@ func (w *worker) resultLoop() {
 			if w.chainConfig.Posv != nil &&
 				block.NumberU64() >= w.chainConfig.Posv.Epoch &&
 				!posvSelfAttested {
-				log.Debug("POSV: M1-only block, skip local write, broadcast for M2 attestation",
+				log.Debug("[Miner] POSV: M1-only block, skip local write, broadcast for M2 attestation",
 					"number", block.Number(), "sealhash", sealhash, "hash", hash)
 				w.mux.Post(core.NewMinedBlockEvent{Block: block})
 				// [POSV] Submit BlockSigner.sign() vote tx for the block we just sealed.
 				if w.posvSignBlockHook != nil {
-					log.Debug("[POSV resultLoop] firing sign hook (M1-only path)", "block", block.NumberU64())
+					log.Debug("[Miner] POSV resultLoop firing sign hook (M1-only path)", "block", block.NumberU64())
 					if err := w.posvSignBlockHook(block); err != nil {
-						log.Error("POSV: sign block hook failed (M1-only)", "number", block.NumberU64(), "err", err)
+						log.Error("[Miner] POSV: sign block hook failed (M1-only)", "number", block.NumberU64(), "err", err)
 					}
 				} else {
-					log.Warn("[POSV resultLoop] posvSignBlockHook is nil (M1-only path)", "block", block.NumberU64())
+					log.Warn("[Miner] POSV resultLoop posvSignBlockHook is nil (M1-only path)", "block", block.NumberU64())
 				}
 				continue
 			}
@@ -685,10 +685,10 @@ func (w *worker) resultLoop() {
 			// Commit block and state to database.
 			_, err := w.chain.WriteBlockWithState(block, receipts, logs, task.state, true)
 			if err != nil {
-				log.Error("Failed writing block to chain", "err", err)
+				log.Error("[Miner] Failed writing block to chain", "err", err)
 				continue
 			}
-			log.Info("Successfully sealed new block", "number", block.Number(), "sealhash", sealhash, "hash", hash,
+			log.Info("[Miner] Successfully sealed new block", "number", block.Number(), "sealhash", sealhash, "hash", hash,
 				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
 
 			// Broadcast the block and announce chain insertion event
@@ -706,12 +706,12 @@ func (w *worker) resultLoop() {
 
 			// [POSV] Submit BlockSigner.sign() vote tx for the block we just sealed.
 			if w.posvSignBlockHook != nil {
-				log.Debug("[POSV resultLoop] firing sign hook (full write path)", "block", block.NumberU64())
+				log.Debug("[Miner] POSV resultLoop firing sign hook (full write path)", "block", block.NumberU64())
 				if err := w.posvSignBlockHook(block); err != nil {
-					log.Error("POSV: sign block hook failed", "number", block.NumberU64(), "err", err)
+					log.Error("[Miner] POSV: sign block hook failed", "number", block.NumberU64(), "err", err)
 				}
 			} else {
-				log.Warn("[POSV resultLoop] posvSignBlockHook is nil (full write path)", "block", block.NumberU64())
+				log.Warn("[Miner] POSV resultLoop posvSignBlockHook is nil (full write path)", "block", block.NumberU64())
 			}
 
 		case <-w.exitCh:
@@ -754,16 +754,16 @@ func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
 func (w *worker) commitUncle(env *environment, uncle *types.Header) error {
 	hash := uncle.Hash()
 	if env.uncles.Contains(hash) {
-		return errors.New("uncle not unique")
+		return errors.New("[Miner] Uncle not unique")
 	}
 	if env.header.ParentHash == uncle.ParentHash {
-		return errors.New("uncle is sibling")
+		return errors.New("[Miner] Uncle is sibling")
 	}
 	if !env.ancestors.Contains(uncle.ParentHash) {
-		return errors.New("uncle's parent unknown")
+		return errors.New("[Miner] Uncle's parent unknown")
 	}
 	if env.family.Contains(hash) {
-		return errors.New("uncle already included")
+		return errors.New("[Miner] Uncle already included")
 	}
 	env.uncles.Add(uncle.Hash())
 	return nil
@@ -867,7 +867,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		}
 		// If we don't have enough gas for any further transactions then we're done
 		if w.current.gasPool.Gas() < params.TxGas {
-			log.Trace("Not enough gas for further transactions", "have", w.current.gasPool, "want", params.TxGas)
+			log.Trace("[Miner] Not enough gas for further transactions", "have", w.current.gasPool, "want", params.TxGas)
 			break
 		}
 		// Retrieve the next transaction and abort if all done
@@ -883,7 +883,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !w.chainConfig.IsEIP155(w.current.header.Number) {
-			log.Trace("Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
+			log.Trace("[Miner] Ignoring reply protected transaction", "hash", tx.Hash(), "eip155", w.chainConfig.EIP155Block)
 
 			txs.Pop()
 			continue
@@ -895,17 +895,17 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		switch {
 		case errors.Is(err, core.ErrGasLimitReached):
 			// Pop the current out-of-gas transaction without shifting in the next from the account
-			log.Trace("Gas limit exceeded for current block", "sender", from)
+			log.Trace("[Miner] Gas limit exceeded for current block", "sender", from)
 			txs.Pop()
 
 		case errors.Is(err, core.ErrNonceTooLow):
 			// New head notification data race between the transaction pool and miner, shift
-			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
+			log.Trace("[Miner] Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Shift()
 
 		case errors.Is(err, core.ErrNonceTooHigh):
 			// Reorg notification data race between the transaction pool and miner, skip account =
-			log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
+			log.Trace("[Miner] Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Pop()
 
 		case errors.Is(err, nil):
@@ -917,7 +917,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
+			log.Debug("[Miner] Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
 		}
 	}
@@ -970,7 +970,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	// this will ensure we're not going off too far in the future
 	if now := time.Now().Unix(); timestamp > now+1 {
 		wait := time.Duration(timestamp-now) * time.Second
-		log.Debug("Mining too far in the future", "wait", common.PrettyDuration(wait))
+		log.Debug("[Miner] Mining too far in the future", "wait", common.PrettyDuration(wait))
 		time.Sleep(wait)
 	}
 
@@ -992,13 +992,13 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	// Only set the coinbase if our consensus engine is running (avoid spurious block rewards)
 	if w.isRunning() {
 		if w.coinbase == (common.Address{}) {
-			log.Error("Refusing to mine without etherbase")
+			log.Error("[Miner] Refusing to mine without etherbase")
 			return
 		}
 		header.Coinbase = w.coinbase
 	}
 	if err := w.engine.Prepare(w.chain, header); err != nil {
-		log.Error("Failed to prepare header for mining", "err", err)
+		log.Error("[Miner] Failed to prepare header for mining", "err", err)
 		return
 	}
 	// If we are care about TheDAO hard-fork check whether to override the extra-data or not
@@ -1017,7 +1017,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	// Could potentially happen if starting to mine in an odd state.
 	err := w.makeCurrent(parent, header)
 	if err != nil {
-		log.Error("Failed to create mining context", "err", err)
+		log.Error("[Miner] Failed to create mining context", "err", err)
 		return
 	}
 
@@ -1055,9 +1055,9 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 					break
 				}
 				if err := w.commitUncle(env, uncle.Header()); err != nil {
-					log.Trace("Possible uncle rejected", "hash", hash, "reason", err)
+					log.Trace("[Miner] Possible uncle rejected", "hash", hash, "reason", err)
 				} else {
-					log.Debug("Committing new uncle to block", "hash", hash)
+					log.Debug("[Miner] Committing new uncle to block", "hash", hash)
 					uncles = append(uncles, uncle.Header())
 				}
 			}
@@ -1085,7 +1085,7 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	// Fill the block with all available pending transactions.
 	pending, err := w.eth.TxPool().Pending()
 	if err != nil {
-		log.Error("Failed to fetch pending transactions", "err", err)
+		log.Error("[Miner] Failed to fetch pending transactions", "err", err)
 		return
 	}
 
@@ -1155,13 +1155,13 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 			if w.chainConfig.Posv != nil && w.isRunning() {
 				w.posvLastParentCommitHash.Store(block.ParentHash())
 			}
-			log.Info("Commit new mining work", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
+			log.Info("[Miner] Commit new mining work", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
 				"uncles", len(uncles), "txs", w.current.tcount,
 				"gas", block.GasUsed(), "fees", totalFees(block, receipts),
 				"elapsed", common.PrettyDuration(time.Since(start)))
 
 		case <-w.exitCh:
-			log.Info("Worker has exited")
+			log.Info("[Miner] Worker has exited")
 		}
 	}
 	if update {
