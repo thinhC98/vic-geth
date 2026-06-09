@@ -244,7 +244,7 @@ func (db *nodeDB) expirer() {
 		select {
 		case <-tick.C:
 			if err := db.expireNodes(); err != nil {
-				log.Error(fmt.Sprintf("Failed to expire nodedb items: %v", err))
+				log.Error(fmt.Sprintf("[DISCV5] Failed to expire nodedb items: %v", err))
 			}
 		case <-db.quit:
 			return
@@ -381,7 +381,7 @@ func nextNode(it iterator.Iterator) *Node {
 		}
 		var n Node
 		if err := rlp.DecodeBytes(it.Value(), &n); err != nil {
-			log.Warn(fmt.Sprintf("invalid node %x: %v", id, err))
+			log.Warn(fmt.Sprintf("[DISCV5] invalid node %x: %v", id, err))
 			continue
 		}
 		return &n

@@ -313,7 +313,7 @@ func (t *UDPv4) findnode(toid enode.ID, toaddr *net.UDPAddr, target v4wire.Pubke
 			nreceived++
 			n, err := t.nodeFromRPC(toaddr, rn)
 			if err != nil {
-				t.log.Trace("Invalid neighbor node received", "ip", rn.IP, "addr", toaddr, "err", err)
+				t.log.Trace("[DISCOVER] Invalid neighbor node received", "ip", rn.IP, "addr", toaddr, "err", err)
 				continue
 			}
 			nodes = append(nodes, n)
@@ -366,13 +366,13 @@ func (t *UDPv4) RequestENR(n *enode.Node) (*enode.Node, error) {
 		return nil, err
 	}
 	if respN.ID() != n.ID() {
-		return nil, fmt.Errorf("invalid ID in response record")
+		return nil, fmt.Errorf("[DISCOVER] invalid ID in response record")
 	}
 	if respN.Seq() < n.Seq() {
 		return n, nil // response record is older
 	}
 	if err := netutil.CheckRelayIP(addr.IP, respN.IP()); err != nil {
-		return nil, fmt.Errorf("invalid IP in response record: %v", err)
+		return nil, fmt.Errorf("[DISCOVER] invalid IP in response record: %v", err)
 	}
 	return respN, nil
 }
@@ -524,12 +524,12 @@ func (t *UDPv4) readLoop(unhandled chan<- ReadPacket) {
 		nbytes, from, err := t.conn.ReadFromUDP(buf)
 		if netutil.IsTemporaryError(err) {
 			// Ignore temporary read errors.
-			t.log.Debug("Temporary UDP read error", "err", err)
+			t.log.Debug("[DISCOVER] Temporary UDP read error", "err", err)
 			continue
 		} else if err != nil {
 			// Shut down the loop for permament errors.
 			if err != io.EOF {
-				t.log.Debug("UDP read error", "err", err)
+				t.log.Debug("[DISCOVER] UDP read error", "err", err)
 			}
 			return
 		}
@@ -545,7 +545,7 @@ func (t *UDPv4) readLoop(unhandled chan<- ReadPacket) {
 func (t *UDPv4) handlePacket(from *net.UDPAddr, buf []byte) error {
 	rawpacket, fromKey, hash, err := v4wire.Decode(buf)
 	if err != nil {
-		t.log.Debug("Bad discv4 packet", "addr", from, "err", err)
+		t.log.Debug("[DISCOVER] Bad discv4 packet", "addr", from, "err", err)
 		return err
 	}
 	packet := t.wrapPacket(rawpacket)
@@ -585,7 +585,7 @@ func (t *UDPv4) nodeFromRPC(sender *net.UDPAddr, rn v4wire.Node) (*node, error) 
 		return nil, err
 	}
 	if t.netrestrict != nil && !t.netrestrict.Contains(rn.IP) {
-		return nil, errors.New("not contained in netrestrict whitelist")
+		return nil, errors.New("[DISCOVER] not contained in netrestrict whitelist")
 	}
 	key, err := v4wire.DecodePubkey(crypto.S256(), rn.ID)
 	if err != nil {

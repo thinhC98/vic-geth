@@ -188,7 +188,7 @@ func (c *Codec) Encode(id enode.ID, addr string, packet Packet, challenge *Whoar
 
 	// Generate masking IV.
 	if err := c.sc.maskingIVGen(head.IV[:]); err != nil {
-		return nil, Nonce{}, fmt.Errorf("can't generate masking IV: %v", err)
+		return nil, Nonce{}, fmt.Errorf("[V5WIRE] can't generate masking IV: %v", err)
 	}
 
 	// Encode header data.
@@ -242,11 +242,11 @@ func (c *Codec) makeHeader(toID enode.ID, flag byte, authsizeExtra int) Header {
 	case flagHandshake:
 		authsize = sizeofHandshakeAuthData
 	default:
-		panic(fmt.Errorf("BUG: invalid packet header flag %x", flag))
+		panic(fmt.Errorf("[V5WIRE] BUG: invalid packet header flag %x", flag))
 	}
 	authsize += authsizeExtra
 	if authsize > int(^uint16(0)) {
-		panic(fmt.Errorf("BUG: auth size %d overflows uint16", authsize))
+		panic(fmt.Errorf("[V5WIRE] BUG: auth size %d overflows uint16", authsize))
 	}
 	return Header{
 		StaticHeader: StaticHeader{
@@ -265,7 +265,7 @@ func (c *Codec) encodeRandom(toID enode.ID) (Header, []byte, error) {
 	// Encode auth data.
 	auth := messageAuthData{SrcID: c.localnode.ID()}
 	if _, err := crand.Read(head.Nonce[:]); err != nil {
-		return head, nil, fmt.Errorf("can't get random data: %v", err)
+		return head, nil, fmt.Errorf("[V5WIRE] can't get random data: %v", err)
 	}
 	c.headbuf.Reset()
 	binary.Write(&c.headbuf, binary.BigEndian, auth)
@@ -281,7 +281,7 @@ func (c *Codec) encodeRandom(toID enode.ID) (Header, []byte, error) {
 func (c *Codec) encodeWhoareyou(toID enode.ID, packet *Whoareyou) (Header, error) {
 	// Sanity check node field to catch misbehaving callers.
 	if packet.RecordSeq > 0 && packet.Node == nil {
-		panic("BUG: missing node in whoareyou with non-zero seq")
+		panic("[V5WIRE] BUG: missing node in whoareyou with non-zero seq")
 	}
 
 	// Create header.
@@ -304,7 +304,7 @@ func (c *Codec) encodeWhoareyou(toID enode.ID, packet *Whoareyou) (Header, error
 func (c *Codec) encodeHandshakeHeader(toID enode.ID, addr string, challenge *Whoareyou) (Header, *session, error) {
 	// Ensure calling code sets challenge.node.
 	if challenge.Node == nil {
-		panic("BUG: missing challenge.Node in encode")
+		panic("[V5WIRE] BUG: missing challenge.Node in encode")
 	}
 
 	// Generate new secrets.
@@ -316,7 +316,7 @@ func (c *Codec) encodeHandshakeHeader(toID enode.ID, addr string, challenge *Who
 	// Generate nonce for message.
 	nonce, err := c.sc.nextNonce(session)
 	if err != nil {
-		return Header{}, nil, fmt.Errorf("can't generate nonce: %v", err)
+		return Header{}, nil, fmt.Errorf("[V5WIRE] can't generate nonce: %v", err)
 	}
 
 	// TODO: this should happen when the first authenticated message is received
@@ -346,11 +346,11 @@ func (c *Codec) makeHandshakeAuth(toID enode.ID, addr string, challenge *Whoarey
 	// key is part of the ID nonce signature.
 	var remotePubkey = new(ecdsa.PublicKey)
 	if err := challenge.Node.Load((*enode.Secp256k1)(remotePubkey)); err != nil {
-		return nil, nil, fmt.Errorf("can't find secp256k1 key for recipient")
+		return nil, nil, fmt.Errorf("[V5WIRE] can't find secp256k1 key for recipient")
 	}
 	ephkey, err := c.sc.ephemeralKeyGen()
 	if err != nil {
-		return nil, nil, fmt.Errorf("can't generate ephemeral key")
+		return nil, nil, fmt.Errorf("[V5WIRE] can't generate ephemeral key")
 	}
 	ephpubkey := EncodePubkey(&ephkey.PublicKey)
 	auth.pubkey = ephpubkey[:]
@@ -360,7 +360,7 @@ func (c *Codec) makeHandshakeAuth(toID enode.ID, addr string, challenge *Whoarey
 	cdata := challenge.ChallengeData
 	idsig, err := makeIDSignature(c.sha256, c.privkey, cdata, ephpubkey[:], toID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("can't sign: %v", err)
+		return nil, nil, fmt.Errorf("[V5WIRE] can't sign: %v", err)
 	}
 	auth.signature = idsig
 	auth.h.SigSize = byte(len(auth.signature))
@@ -374,7 +374,7 @@ func (c *Codec) makeHandshakeAuth(toID enode.ID, addr string, challenge *Whoarey
 	// Create session keys.
 	sec := deriveKeys(sha256.New, ephkey, remotePubkey, c.localnode.ID(), challenge.Node.ID(), cdata)
 	if sec == nil {
-		return nil, nil, fmt.Errorf("key derivation failed")
+		return nil, nil, fmt.Errorf("[V5WIRE] key derivation failed")
 	}
 	return auth, sec, err
 }
@@ -386,7 +386,7 @@ func (c *Codec) encodeMessageHeader(toID enode.ID, s *session) (Header, error) {
 	// Create the header.
 	nonce, err := c.sc.nextNonce(s)
 	if err != nil {
-		return Header{}, fmt.Errorf("can't generate nonce: %v", err)
+		return Header{}, fmt.Errorf("[V5WIRE] can't generate nonce: %v", err)
 	}
 	auth := messageAuthData{SrcID: c.localnode.ID()}
 	c.buf.Reset()
@@ -462,7 +462,7 @@ func (c *Codec) Decode(input []byte, addr string) (src enode.ID, n *enode.Node, 
 // decodeWhoareyou reads packet data after the header as a WHOAREYOU packet.
 func (c *Codec) decodeWhoareyou(head *Header, headerData []byte) (Packet, error) {
 	if len(head.AuthData) != sizeofWhoareyouAuthData {
-		return nil, fmt.Errorf("invalid auth size %d for WHOAREYOU", len(head.AuthData))
+		return nil, fmt.Errorf("[V5WIRE] invalid auth size %d for WHOAREYOU", len(head.AuthData))
 	}
 	var auth whoareyouAuthData
 	c.reader.Reset(head.AuthData)
@@ -534,7 +534,7 @@ func (c *Codec) decodeHandshake(fromAddr string, head *Header) (n *enode.Node, a
 func (c *Codec) decodeHandshakeAuthData(head *Header) (auth handshakeAuthData, err error) {
 	// Decode fixed size part.
 	if len(head.AuthData) < sizeofHandshakeAuthData {
-		return auth, fmt.Errorf("header authsize %d too low for handshake", head.AuthSize)
+		return auth, fmt.Errorf("[V5WIRE] header authsize %d too low for handshake", head.AuthSize)
 	}
 	c.reader.Reset(head.AuthData)
 	binary.Read(&c.reader, binary.BigEndian, &auth.h)
@@ -569,10 +569,10 @@ func (c *Codec) decodeHandshakeRecord(local *enode.Node, wantID enode.ID, remote
 		if local == nil || local.Seq() < record.Seq() {
 			n, err := enode.New(enode.ValidSchemes, &record)
 			if err != nil {
-				return nil, fmt.Errorf("invalid node record: %v", err)
+				return nil, fmt.Errorf("[V5WIRE] invalid node record: %v", err)
 			}
 			if n.ID() != wantID {
-				return nil, fmt.Errorf("record in handshake has wrong ID: %v", n.ID())
+				return nil, fmt.Errorf("[V5WIRE] record in handshake has wrong ID: %v", n.ID())
 			}
 			node = n
 		}
@@ -586,7 +586,7 @@ func (c *Codec) decodeHandshakeRecord(local *enode.Node, wantID enode.ID, remote
 // decodeMessage reads packet data following the header as an ordinary message packet.
 func (c *Codec) decodeMessage(fromAddr string, head *Header, headerData, msgData []byte) (Packet, error) {
 	if len(head.AuthData) != sizeofMessageAuthData {
-		return nil, fmt.Errorf("invalid auth size %d for message packet", len(head.AuthData))
+		return nil, fmt.Errorf("[V5WIRE] invalid auth size %d for message packet", len(head.AuthData))
 	}
 	var auth messageAuthData
 	c.reader.Reset(head.AuthData)
@@ -636,7 +636,7 @@ func (h *StaticHeader) checkValid(packetLen int) error {
 func (h *Header) mask(destID enode.ID) cipher.Stream {
 	block, err := aes.NewCipher(destID[:16])
 	if err != nil {
-		panic("can't create cipher")
+		panic("[V5WIRE] can't create cipher")
 	}
 	return cipher.NewCTR(block, h.IV[:])
 }

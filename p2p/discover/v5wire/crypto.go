@@ -46,7 +46,7 @@ func EncodePubkey(key *ecdsa.PublicKey) []byte {
 	case crypto.S256():
 		return crypto.CompressPubkey(key)
 	default:
-		panic("unsupported curve " + key.Curve.Params().Name + " in EncodePubkey")
+		panic("[V5WIRE] unsupported curve " + key.Curve.Params().Name + " in EncodePubkey")
 	}
 }
 
@@ -55,11 +55,11 @@ func DecodePubkey(curve elliptic.Curve, e []byte) (*ecdsa.PublicKey, error) {
 	switch curve {
 	case crypto.S256():
 		if len(e) != 33 {
-			return nil, errors.New("wrong size public key data")
+			return nil, errors.New("[V5WIRE] wrong size public key data")
 		}
 		return crypto.DecompressPubkey(e)
 	default:
-		return nil, fmt.Errorf("unsupported curve %s in DecodePubkey", curve.Params().Name)
+		return nil, fmt.Errorf("[V5WIRE] unsupported curve %s in DecodePubkey", curve.Params().Name)
 	}
 }
 
@@ -84,7 +84,7 @@ func makeIDSignature(hash hash.Hash, key *ecdsa.PrivateKey, challenge, ephkey []
 		}
 		return idsig[:len(idsig)-1], nil // remove recovery ID
 	default:
-		return nil, fmt.Errorf("unsupported curve %s", key.Curve.Params().Name)
+		return nil, fmt.Errorf("[V5WIRE] unsupported curve %s", key.Curve.Params().Name)
 	}
 }
 
@@ -99,7 +99,7 @@ func verifyIDSignature(hash hash.Hash, sig []byte, n *enode.Node, challenge, eph
 	case "v4":
 		var pubkey s256raw
 		if n.Load(&pubkey) != nil {
-			return errors.New("no secp256k1 public key in record")
+			return errors.New("[V5WIRE] no secp256k1 public key in record")
 		}
 		input := idNonceHash(hash, challenge, ephkey, destID)
 		if !crypto.VerifySignature(pubkey, input, sig) {
@@ -107,7 +107,7 @@ func verifyIDSignature(hash hash.Hash, sig []byte, n *enode.Node, challenge, eph
 		}
 		return nil
 	default:
-		return fmt.Errorf("can't verify ID nonce signature against scheme %q", idscheme)
+		return fmt.Errorf("[V5WIRE] can't verify ID nonce signature against scheme %q", idscheme)
 	}
 }
 
@@ -153,11 +153,11 @@ func ecdh(privkey *ecdsa.PrivateKey, pubkey *ecdsa.PublicKey) []byte {
 func encryptGCM(dest, key, nonce, plaintext, authData []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		panic(fmt.Errorf("can't create block cipher: %v", err))
+		panic(fmt.Errorf("[V5WIRE] can't create block cipher: %v", err))
 	}
 	aesgcm, err := cipher.NewGCMWithNonceSize(block, gcmNonceSize)
 	if err != nil {
-		panic(fmt.Errorf("can't create GCM: %v", err))
+		panic(fmt.Errorf("[V5WIRE] can't create GCM: %v", err))
 	}
 	return aesgcm.Seal(dest, nonce, plaintext, authData), nil
 }
@@ -166,14 +166,14 @@ func encryptGCM(dest, key, nonce, plaintext, authData []byte) ([]byte, error) {
 func decryptGCM(key, nonce, ct, authData []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, fmt.Errorf("can't create block cipher: %v", err)
+		return nil, fmt.Errorf("[V5WIRE] can't create block cipher: %v", err)
 	}
 	if len(nonce) != gcmNonceSize {
-		return nil, fmt.Errorf("invalid GCM nonce size: %d", len(nonce))
+		return nil, fmt.Errorf("[V5WIRE] invalid GCM nonce size: %d", len(nonce))
 	}
 	aesgcm, err := cipher.NewGCMWithNonceSize(block, gcmNonceSize)
 	if err != nil {
-		return nil, fmt.Errorf("can't create GCM: %v", err)
+		return nil, fmt.Errorf("[V5WIRE] can't create GCM: %v", err)
 	}
 	pt := make([]byte, 0, len(ct))
 	return aesgcm.Open(pt, nonce, ct, authData)

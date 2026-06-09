@@ -151,7 +151,7 @@ var maxNeighbors = func() int {
 		size, _, err := rlp.EncodeToReader(p)
 		if err != nil {
 			// If this ever happens, it will be caught by the unit tests.
-			panic("cannot encode: " + err.Error())
+			panic("[DISCV5] cannot encode: " + err.Error())
 		}
 		if headSize+size+1 >= 1280 {
 			return n
@@ -167,7 +167,7 @@ var maxTopicNodes = func() int {
 		size, _, err := rlp.EncodeToReader(p)
 		if err != nil {
 			// If this ever happens, it will be caught by the unit tests.
-			panic("cannot encode: " + err.Error())
+			panic("[DISCV5] cannot encode: " + err.Error())
 		}
 		if headSize+size+1 >= 1280 {
 			return n
@@ -231,7 +231,7 @@ func ListenUDP(priv *ecdsa.PrivateKey, conn conn, nodeDBPath string, netrestrict
 	if err != nil {
 		return nil, err
 	}
-	log.Info("UDP listener up", "net", net.tab.self)
+	log.Info("[DISCV5] UDP listener up", "net", net.tab.self)
 	transport.net = net
 	go transport.readLoop()
 	return net, nil
@@ -320,7 +320,7 @@ func (t *udp) sendPacket(toid NodeID, toaddr *net.UDPAddr, ptype byte, req inter
 	}
 	log.Trace(fmt.Sprintf(">>> %v to %x@%v", nodeEvent(ptype), toid[:8], toaddr))
 	if nbytes, err := t.conn.WriteToUDP(packet, toaddr); err != nil {
-		log.Trace(fmt.Sprint("UDP send failed:", err))
+		log.Trace(fmt.Sprint("[DISCV5] UDP send failed:", err))
 	} else {
 		egressTrafficMeter.Mark(int64(nbytes))
 	}
@@ -336,13 +336,13 @@ func encodePacket(priv *ecdsa.PrivateKey, ptype byte, req interface{}) (p, hash 
 	b.Write(headSpace)
 	b.WriteByte(ptype)
 	if err := rlp.Encode(b, req); err != nil {
-		log.Error(fmt.Sprint("error encoding packet:", err))
+		log.Error(fmt.Sprint("[DISCV5] error encoding packet:", err))
 		return nil, nil, err
 	}
 	packet := b.Bytes()
 	sig, err := crypto.Sign(crypto.Keccak256(packet[headSize:]), priv)
 	if err != nil {
-		log.Error(fmt.Sprint("could not sign packet:", err))
+		log.Error(fmt.Sprint("[DISCV5] could not sign packet:", err))
 		return nil, nil, err
 	}
 	copy(packet, versionPrefix)
@@ -364,11 +364,11 @@ func (t *udp) readLoop() {
 		ingressTrafficMeter.Mark(int64(nbytes))
 		if netutil.IsTemporaryError(err) {
 			// Ignore temporary read errors.
-			log.Debug(fmt.Sprintf("Temporary read error: %v", err))
+			log.Debug(fmt.Sprintf("[DISCV5] Temporary read error: %v", err))
 			continue
 		} else if err != nil {
 			// Shut down the loop for permament errors.
-			log.Debug(fmt.Sprintf("Read error: %v", err))
+			log.Debug(fmt.Sprintf("[DISCV5] Read error: %v", err))
 			return
 		}
 		t.handlePacket(from, buf[:nbytes])
@@ -378,7 +378,7 @@ func (t *udp) readLoop() {
 func (t *udp) handlePacket(from *net.UDPAddr, buf []byte) error {
 	pkt := ingressPacket{remoteAddr: from}
 	if err := decodePacket(buf, &pkt); err != nil {
-		log.Debug(fmt.Sprintf("Bad packet from %v: %v", from, err))
+		log.Debug(fmt.Sprintf("[DISCV5] Bad packet from %v: %v", from, err))
 		//fmt.Println("bad packet", err)
 		return err
 	}
@@ -421,7 +421,7 @@ func decodePacket(buffer []byte, pkt *ingressPacket) error {
 	case topicNodesPacket:
 		pkt.data = new(topicNodes)
 	default:
-		return fmt.Errorf("unknown packet type: %d", sigdata[0])
+		return fmt.Errorf("[DISCV5] unknown packet type: %d", sigdata[0])
 	}
 	s := rlp.NewStream(bytes.NewReader(sigdata[1:]), 0)
 	err = s.Decode(pkt.data)

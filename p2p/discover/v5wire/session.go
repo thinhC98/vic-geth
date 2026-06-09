@@ -64,7 +64,7 @@ func (s *session) keysFlipped() *session {
 func NewSessionCache(maxItems int, clock mclock.Clock) *SessionCache {
 	cache, err := simplelru.NewLRU(maxItems, nil)
 	if err != nil {
-		panic("can't create session cache")
+		panic("[V5WIRE] can't create session cache")
 	}
 	return &SessionCache{
 		sessions:        cache,

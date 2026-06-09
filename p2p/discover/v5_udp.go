@@ -351,7 +351,7 @@ func (t *UDPv5) RequestENR(n *enode.Node) (*enode.Node, error) {
 		return nil, err
 	}
 	if len(nodes) != 1 {
-		return nil, fmt.Errorf("%d nodes in response for distance zero", len(nodes))
+		return nil, fmt.Errorf("[DISCOVER] %d nodes in response for distance zero", len(nodes))
 	}
 	return nodes[0], nil
 }
@@ -378,7 +378,7 @@ func (t *UDPv5) waitForNodes(c *callV5, distances []uint) ([]*enode.Node, error)
 			for _, record := range response.Nodes {
 				node, err := t.verifyResponseNode(c, record, distances, seen)
 				if err != nil {
-					t.log.Debug("Invalid record in "+response.Name(), "id", c.node.ID(), "err", err)
+					t.log.Debug("[DISCOVER] Invalid record in "+response.Name(), "id", c.node.ID(), "err", err)
 					continue
 				}
 				nodes = append(nodes, node)
@@ -410,11 +410,11 @@ func (t *UDPv5) verifyResponseNode(c *callV5, r *enr.Record, distances []uint, s
 	if distances != nil {
 		nd := enode.LogDist(c.node.ID(), node.ID())
 		if !containsUint(uint(nd), distances) {
-			return nil, errors.New("does not match any requested distance")
+			return nil, errors.New("[DISCOVER] does not match any requested distance")
 		}
 	}
 	if _, ok := seen[node.ID()]; ok {
-		return nil, fmt.Errorf("duplicate record")
+		return nil, fmt.Errorf("[DISCOVER] duplicate record")
 	}
 	seen[node.ID()] = struct{}{}
 	return node, nil
@@ -505,7 +505,7 @@ func (t *UDPv5) dispatch() {
 			id := c.node.ID()
 			active := t.activeCallByNode[id]
 			if active != c {
-				panic("BUG: callDone for inactive call")
+				panic("[DISCOVER] BUG: callDone for inactive call")
 			}
 			c.timeout.Stop()
 			delete(t.activeCallByAuth, c.nonce)
@@ -616,12 +616,12 @@ func (t *UDPv5) readLoop() {
 		nbytes, from, err := t.conn.ReadFromUDP(buf)
 		if netutil.IsTemporaryError(err) {
 			// Ignore temporary read errors.
-			t.log.Debug("Temporary UDP read error", "err", err)
+			t.log.Debug("[DISCOVER] Temporary UDP read error", "err", err)
 			continue
 		} else if err != nil {
 			// Shut down the loop for permament errors.
 			if err != io.EOF {
-				t.log.Debug("UDP read error", "err", err)
+				t.log.Debug("[DISCOVER] UDP read error", "err", err)
 			}
 			return
 		}
@@ -644,7 +644,7 @@ func (t *UDPv5) handlePacket(rawpacket []byte, fromAddr *net.UDPAddr) error {
 	addr := fromAddr.String()
 	fromID, fromNode, packet, err := t.codec.Decode(rawpacket, addr)
 	if err != nil {
-		t.log.Debug("Bad discv5 packet", "id", fromID, "addr", addr, "err", err)
+		t.log.Debug("[DISCOVER] Bad discv5 packet", "id", fromID, "addr", addr, "err", err)
 		return err
 	}
 	if fromNode != nil {
@@ -663,15 +663,15 @@ func (t *UDPv5) handlePacket(rawpacket []byte, fromAddr *net.UDPAddr) error {
 func (t *UDPv5) handleCallResponse(fromID enode.ID, fromAddr *net.UDPAddr, p v5wire.Packet) bool {
 	ac := t.activeCallByNode[fromID]
 	if ac == nil || !bytes.Equal(p.RequestID(), ac.reqid) {
-		t.log.Debug(fmt.Sprintf("Unsolicited/late %s response", p.Name()), "id", fromID, "addr", fromAddr)
+		t.log.Debug(fmt.Sprintf("[DISCOVER] Unsolicited/late %s response", p.Name()), "id", fromID, "addr", fromAddr)
 		return false
 	}
 	if !fromAddr.IP.Equal(ac.node.IP()) || fromAddr.Port != ac.node.UDP() {
-		t.log.Debug(fmt.Sprintf("%s from wrong endpoint", p.Name()), "id", fromID, "addr", fromAddr)
+		t.log.Debug(fmt.Sprintf("[DISCOVER] %s from wrong endpoint", p.Name()), "id", fromID, "addr", fromAddr)
 		return false
 	}
 	if p.Kind() != ac.responseType {
-		t.log.Debug(fmt.Sprintf("Wrong discv5 response type %s", p.Name()), "id", fromID, "addr", fromAddr)
+		t.log.Debug(fmt.Sprintf("[DISCOVER] Wrong discv5 response type %s", p.Name()), "id", fromID, "addr", fromAddr)
 		return false
 	}
 	t.startResponseTimeout(ac)
@@ -734,7 +734,7 @@ var (
 func (t *UDPv5) handleWhoareyou(p *v5wire.Whoareyou, fromID enode.ID, fromAddr *net.UDPAddr) {
 	c, err := t.matchWithCall(fromID, p.Nonce)
 	if err != nil {
-		t.log.Debug("Invalid "+p.Name(), "addr", fromAddr, "err", err)
+		t.log.Debug("[DISCOVER] Invalid "+p.Name(), "addr", fromAddr, "err", err)
 		return
 	}
 

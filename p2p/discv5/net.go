@@ -191,7 +191,7 @@ func (net *Network) SetFallbackNodes(nodes []*Node) error {
 	nursery := make([]*Node, 0, len(nodes))
 	for _, n := range nodes {
 		if err := n.validateComplete(); err != nil {
-			return fmt.Errorf("bad bootstrap/fallback node %q (%v)", n, err)
+			return fmt.Errorf("[DISCV5] bad bootstrap/fallback node %q (%v)", n, err)
 		}
 		// Recompute cpy.sha because the node might not have been
 		// created by NewNode or ParseNode.
@@ -472,7 +472,7 @@ loop:
 			// determination for new topics.
 			// if topicRegisterLookupDone == nil {
 			if topicRegisterLookupTarget.target == (common.Hash{}) {
-				log.Trace("topicRegisterLookupTarget == null")
+				log.Trace("[DISCV5] topicRegisterLookupTarget == null")
 				if topicRegisterLookupTick.Stop() {
 					<-topicRegisterLookupTick.C
 				}
@@ -639,9 +639,9 @@ loop:
 			}
 		}
 	}
-	log.Trace("loop stopped")
+	log.Trace("[DISCV5] loop stopped")
 
-	log.Debug("shutting down")
+	log.Debug("[DISCV5] shutting down")
 	if net.conn != nil {
 		net.conn.Close()
 	}
@@ -671,7 +671,7 @@ func (net *Network) refresh(done chan<- struct{}) {
 		seeds = net.nursery
 	}
 	if len(seeds) == 0 {
-		log.Trace("no seed nodes found")
+		log.Trace("[DISCV5] no seed nodes found")
 		time.AfterFunc(time.Second*10, func() { close(done) })
 		return
 	}
@@ -683,7 +683,7 @@ func (net *Network) refresh(done chan<- struct{}) {
 			} else {
 				age = "unknown"
 			}
-			return fmt.Sprintf("seed node (age %s): %v", age, n)
+			return fmt.Sprintf("[DISCV5] seed node (age %s): %v", age, n)
 		}})
 		n = net.internNodeFromDB(n)
 		if n.state == unknown {
@@ -727,17 +727,17 @@ func (net *Network) internNodeFromDB(dbn *Node) *Node {
 
 func (net *Network) internNodeFromNeighbours(sender *net.UDPAddr, rn rpcNode) (n *Node, err error) {
 	if rn.ID == net.tab.self.ID {
-		return nil, errors.New("is self")
+		return nil, errors.New("[DISCV5] is self")
 	}
 	if rn.UDP <= lowPort {
-		return nil, errors.New("low port")
+		return nil, errors.New("[DISCV5] low port")
 	}
 	n = net.nodes[rn.ID]
 	if n == nil {
 		// We haven't seen this node before.
 		n, err = nodeFromRPC(sender, rn)
 		if net.netrestrict != nil && !net.netrestrict.Contains(n.IP) {
-			return n, errors.New("not contained in netrestrict whitelist")
+			return n, errors.New("[DISCV5] not contained in netrestrict whitelist")
 		}
 		if err == nil {
 			n.state = unknown
@@ -748,7 +748,7 @@ func (net *Network) internNodeFromNeighbours(sender *net.UDPAddr, rn rpcNode) (n
 	if !n.IP.Equal(rn.IP) || n.UDP != rn.UDP || n.TCP != rn.TCP {
 		if n.state == known {
 			// reject address change if node is known by us
-			err = fmt.Errorf("metadata mismatch: got %v, want %v", rn, n)
+			err = fmt.Errorf("[DISCV5] metadata mismatch: got %v, want %v", rn, n)
 		} else {
 			// accept otherwise; this will be handled nicer with signed ENRs
 			n.IP = rn.IP
@@ -1058,7 +1058,7 @@ func (net *Network) checkPacket(n *Node, ev nodeEvent, pkt *ingressPacket) error
 	case pongPacket:
 		if !bytes.Equal(pkt.data.(*pong).ReplyTok, n.pingEcho) {
 			// fmt.Println("pong reply token mismatch")
-			return fmt.Errorf("pong reply token mismatch")
+			return fmt.Errorf("[DISCV5] pong reply token mismatch")
 		}
 		n.pingEcho = nil
 	}
@@ -1106,14 +1106,14 @@ func (net *Network) ping(n *Node, addr *net.UDPAddr) {
 		//fmt.Println(" not sent")
 		return
 	}
-	log.Trace("Pinging remote node", "node", n.ID)
+	log.Trace("[DISCV5] Pinging remote node", "node", n.ID)
 	n.pingTopics = net.ticketStore.regTopicSet()
 	n.pingEcho = net.conn.sendPing(n, addr, n.pingTopics)
 	net.timedEvent(respTimeout, n, pongTimeout)
 }
 
 func (net *Network) handlePing(n *Node, pkt *ingressPacket) {
-	log.Trace("Handling remote ping", "node", n.ID)
+	log.Trace("[DISCV5] Handling remote ping", "node", n.ID)
 	ping := pkt.data.(*ping)
 	n.TCP = ping.From.TCP
 	t := net.topictab.getTicket(n, ping.Topics)
@@ -1128,7 +1128,7 @@ func (net *Network) handlePing(n *Node, pkt *ingressPacket) {
 }
 
 func (net *Network) handleKnownPong(n *Node, pkt *ingressPacket) error {
-	log.Trace("Handling known pong", "node", n.ID)
+	log.Trace("[DISCV5] Handling known pong", "node", n.ID)
 	net.abortTimedEvent(n, pongTimeout)
 	now := mclock.Now()
 	ticket, err := pongToTicket(now, n.pingTopics, n, pkt)
@@ -1136,7 +1136,7 @@ func (net *Network) handleKnownPong(n *Node, pkt *ingressPacket) error {
 		// fmt.Printf("(%x) ticket: %+v\n", net.tab.self.ID[:8], pkt.data)
 		net.ticketStore.addTicket(now, pkt.data.(*pong).ReplyTok, ticket)
 	} else {
-		log.Trace("Failed to convert pong to ticket", "err", err)
+		log.Trace("[DISCV5] Failed to convert pong to ticket", "err", err)
 	}
 	n.pingEcho = nil
 	n.pingTopics = nil
@@ -1160,7 +1160,7 @@ func (net *Network) handleQueryEvent(n *Node, ev nodeEvent, pkt *ingressPacket) 
 		}
 		n.queryTimeouts++
 		if n.queryTimeouts > maxFindnodeFailures && n.state == known {
-			return contested, errors.New("too many timeouts")
+			return contested, errors.New("[DISCV5] too many timeouts")
 		}
 		return n.state, nil
 
@@ -1176,7 +1176,7 @@ func (net *Network) handleQueryEvent(n *Node, ev nodeEvent, pkt *ingressPacket) 
 		pong, err := net.checkTopicRegister(regdata)
 		if err != nil {
 			//fmt.Println(err)
-			return n.state, fmt.Errorf("bad waiting ticket: %v", err)
+			return n.state, fmt.Errorf("[DISCV5] bad waiting ticket: %v", err)
 		}
 		net.topictab.useTicket(n, pong.TicketSerial, regdata.Topics, int(regdata.Idx), pong.Expiration, pong.WaitPeriods)
 		return n.state, nil
@@ -1199,7 +1199,7 @@ func (net *Network) handleQueryEvent(n *Node, ev nodeEvent, pkt *ingressPacket) 
 		if net.ticketStore.gotTopicNodes(n, p.Echo, p.Nodes) {
 			n.queryTimeouts++
 			if n.queryTimeouts > maxFindnodeFailures && n.state == known {
-				return contested, errors.New("too many timeouts")
+				return contested, errors.New("[DISCV5] too many timeouts")
 			}
 		}
 		return n.state, nil
@@ -1215,15 +1215,15 @@ func (net *Network) checkTopicRegister(data *topicRegister) (*pong, error) {
 		return nil, err
 	}
 	if pongpkt.ev != pongPacket {
-		return nil, errors.New("is not pong packet")
+		return nil, errors.New("[DISCV5] is not pong packet")
 	}
 	if pongpkt.remoteID != net.tab.self.ID {
-		return nil, errors.New("not signed by us")
+		return nil, errors.New("[DISCV5] not signed by us")
 	}
 	// check that we previously authorised all topics
 	// that the other side is trying to register.
 	if rlpHash(data.Topics) != pongpkt.data.(*pong).TopicHash {
-		return nil, errors.New("topic hash mismatch")
+		return nil, errors.New("[DISCV5] topic hash mismatch")
 	}
 	if data.Idx >= uint(len(data.Topics)) {
 		return nil, errors.New("topic index out of range")
@@ -1249,7 +1249,7 @@ func (net *Network) handleNeighboursPacket(n *Node, pkt *ingressPacket) error {
 	for i, rn := range req.Nodes {
 		nn, err := net.internNodeFromNeighbours(pkt.remoteAddr, rn)
 		if err != nil {
-			log.Debug(fmt.Sprintf("invalid neighbour (%v) from %x@%v: %v", rn.IP, n.ID[:8], pkt.remoteAddr, err))
+			log.Debug(fmt.Sprintf("[DISCV5] invalid neighbour (%v) from %x@%v: %v", rn.IP, n.ID[:8], pkt.remoteAddr, err))
 			continue
 		}
 		nodes[i] = nn

@@ -242,7 +242,7 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 	case ENRResponsePacket:
 		req = new(ENRResponse)
 	default:
-		return nil, fromKey, hash, fmt.Errorf("unknown type: %d", ptype)
+		return nil, fromKey, hash, fmt.Errorf("[V4WIRE] unknown type: %d", ptype)
 	}
 	s := rlp.NewStream(bytes.NewReader(sigdata[1:]), 0)
 	err = s.Decode(req)

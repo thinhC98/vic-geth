@@ -172,7 +172,7 @@ func DecodeMessage(ptype byte, body []byte) (Packet, error) {
 	case TopicQueryMsg:
 		dec = new(TopicQuery)
 	default:
-		return nil, fmt.Errorf("unknown packet type %d", ptype)
+		return nil, fmt.Errorf("[V5WIRE] unknown packet type %d", ptype)
 	}
 	if err := rlp.DecodeBytes(body, dec); err != nil {
 		return nil, err

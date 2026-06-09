@@ -89,10 +89,10 @@ func (ref ticketRef) topicRegTime() mclock.AbsTime {
 func pongToTicket(localTime mclock.AbsTime, topics []Topic, node *Node, p *ingressPacket) (*ticket, error) {
 	wps := p.data.(*pong).WaitPeriods
 	if len(topics) != len(wps) {
-		return nil, fmt.Errorf("bad wait period list: got %d values, want %d", len(topics), len(wps))
+		return nil, fmt.Errorf("[DISCV5] bad wait period list: got %d values, want %d", len(topics), len(wps))
 	}
 	if rlpHash(topics) != p.data.(*pong).TopicHash {
-		return nil, fmt.Errorf("bad topic hash")
+		return nil, fmt.Errorf("[DISCV5] bad topic hash")
 	}
 	t := &ticket{
 		issueTime: localTime,
@@ -172,7 +172,7 @@ func newTicketStore() *ticketStore {
 // addTopic starts tracking a topic. If register is true,
 // the local node will register the topic and tickets will be collected.
 func (s *ticketStore) addTopic(topic Topic, register bool) {
-	log.Trace("Adding discovery topic", "topic", topic, "register", register)
+	log.Trace("[DISCV5] Adding discovery topic", "topic", topic, "register", register)
 	if s.radius[topic] == nil {
 		s.radius[topic] = newTopicRadius(topic)
 	}
@@ -196,9 +196,9 @@ func (s *ticketStore) removeSearchTopic(t Topic) {
 
 // removeRegisterTopic deletes all tickets for the given topic.
 func (s *ticketStore) removeRegisterTopic(topic Topic) {
-	log.Trace("Removing discovery topic", "topic", topic)
+	log.Trace("[DISCV5] Removing discovery topic", "topic", topic)
 	if s.tickets[topic] == nil {
-		log.Warn("Removing non-existent discovery topic", "topic", topic)
+		log.Warn("[DISCV5] Removing non-existent discovery topic", "topic", topic)
 		return
 	}
 	for _, list := range s.tickets[topic].buckets {
@@ -249,7 +249,7 @@ func (s *ticketStore) nextRegisterLookup() (lookupInfo, time.Duration) {
 	}
 	// No registration topics found or all exhausted, sleep
 	delay := 40 * time.Second
-	log.Trace("No topic found to register", "delay", delay)
+	log.Trace("[DISCV5] No topic found to register", "delay", delay)
 	return lookupInfo{}, delay
 }
 
@@ -268,7 +268,7 @@ func (s *ticketStore) addTicketRef(r ticketRef) {
 	topic := r.t.topics[r.idx]
 	tickets := s.tickets[topic]
 	if tickets == nil {
-		log.Warn("Adding ticket to non-existent topic", "topic", topic)
+		log.Warn("[DISCV5] Adding ticket to non-existent topic", "topic", topic)
 		return
 	}
 	bucket := timeBucket(r.t.regTime[r.idx] / mclock.AbsTime(ticketTimeBucketLen))
@@ -291,7 +291,7 @@ func (s *ticketStore) nextFilteredTicket() (*ticketRef, time.Duration) {
 		if ticket == nil {
 			return ticket, wait
 		}
-		log.Trace("Found discovery ticket to register", "node", ticket.t.node, "serial", ticket.t.serial, "wait", wait)
+		log.Trace("[DISCV5] Found discovery ticket to register", "node", ticket.t.node, "serial", ticket.t.serial, "wait", wait)
 
 		regTime := now + mclock.AbsTime(wait)
 		topic := ticket.t.topics[ticket.idx]
@@ -363,7 +363,7 @@ func (s *ticketStore) nextRegisterableTicket() (*ticketRef, time.Duration) {
 
 // removeTicket removes a ticket from the ticket store
 func (s *ticketStore) removeTicketRef(ref ticketRef) {
-	log.Trace("Removing discovery ticket reference", "node", ref.t.node.ID, "serial", ref.t.serial)
+	log.Trace("[DISCV5] Removing discovery ticket reference", "node", ref.t.node.ID, "serial", ref.t.serial)
 
 	// Make nextRegisterableTicket return the next available ticket.
 	s.nextTicketCached = nil
@@ -372,7 +372,7 @@ func (s *ticketStore) removeTicketRef(ref ticketRef) {
 	tickets := s.tickets[topic]
 
 	if tickets == nil {
-		log.Trace("Removing tickets from unknown topic", "topic", topic)
+		log.Trace("[DISCV5] Removing tickets from unknown topic", "topic", topic)
 		return
 	}
 	bucket := timeBucket(ref.t.regTime[ref.idx] / mclock.AbsTime(ticketTimeBucketLen))
@@ -468,7 +468,7 @@ func (s *ticketStore) adjustWithTicket(now mclock.AbsTime, targetHash common.Has
 }
 
 func (s *ticketStore) addTicket(localTime mclock.AbsTime, pingHash []byte, ticket *ticket) {
-	log.Trace("Adding discovery ticket", "node", ticket.node.ID, "serial", ticket.serial)
+	log.Trace("[DISCV5] Adding discovery ticket", "node", ticket.node.ID, "serial", ticket.serial)
 
 	lastReq, ok := s.nodeLastReq[ticket.node]
 	if !(ok && bytes.Equal(pingHash, lastReq.pingHash)) {

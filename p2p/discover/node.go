@@ -48,14 +48,14 @@ func encodePubkey(key *ecdsa.PublicKey) encPubkey {
 
 func decodePubkey(curve elliptic.Curve, e []byte) (*ecdsa.PublicKey, error) {
 	if len(e) != len(encPubkey{}) {
-		return nil, errors.New("wrong size public key data")
+		return nil, errors.New("[DISCOVER] wrong size public key data")
 	}
 	p := &ecdsa.PublicKey{Curve: curve, X: new(big.Int), Y: new(big.Int)}
 	half := len(e) / 2
 	p.X.SetBytes(e[:half])
 	p.Y.SetBytes(e[half:])
 	if !p.Curve.IsOnCurve(p.X, p.Y) {
-		return nil, errors.New("invalid curve point")
+		return nil, errors.New("[DISCOVER] invalid curve point")
 	}
 	return p, nil
 }

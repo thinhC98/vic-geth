@@ -74,16 +74,16 @@ func (n *Node) Incomplete() bool {
 // checks whether n is a valid complete node.
 func (n *Node) validateComplete() error {
 	if n.Incomplete() {
-		return errors.New("incomplete node")
+		return errors.New("[DISCV5] incomplete node")
 	}
 	if n.UDP == 0 {
-		return errors.New("missing UDP port")
+		return errors.New("[DISCV5] missing UDP port")
 	}
 	if n.TCP == 0 {
-		return errors.New("missing TCP port")
+		return errors.New("[DISCV5] missing TCP port")
 	}
 	if n.IP.IsMulticast() || n.IP.IsUnspecified() {
-		return errors.New("invalid IP (multicast/unspecified)")
+		return errors.New("[DISCV5] invalid IP (multicast/unspecified)")
 	}
 	_, err := n.ID.Pubkey() // validate the key (on curve, etc.)
 	return err
@@ -135,7 +135,7 @@ func ParseNode(rawurl string) (*Node, error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := HexID(m[1])
 		if err != nil {
-			return nil, fmt.Errorf("invalid node ID (%v)", err)
+			return nil, fmt.Errorf("[DISCV5] invalid node ID (%v)", err)
 		}
 		return NewNode(id, nil, 0, 0), nil
 	}
@@ -153,22 +153,22 @@ func parseComplete(rawurl string) (*Node, error) {
 		return nil, err
 	}
 	if u.Scheme != "enode" {
-		return nil, errors.New("invalid URL scheme, want \"enode\"")
+		return nil, errors.New("[DISCV5] invalid URL scheme, want \"enode\"")
 	}
 	// Parse the Node ID from the user portion.
 	if u.User == nil {
-		return nil, errors.New("does not contain node ID")
+		return nil, errors.New("[DISCV5] does not contain node ID")
 	}
 	if id, err = HexID(u.User.String()); err != nil {
-		return nil, fmt.Errorf("invalid node ID (%v)", err)
+		return nil, fmt.Errorf("[DISCV5] invalid node ID (%v)", err)
 	}
 	// Parse the IP address.
 	host, port, err := net.SplitHostPort(u.Host)
 	if err != nil {
-		return nil, fmt.Errorf("invalid host: %v", err)
+		return nil, fmt.Errorf("[DISCV5] invalid host: %v", err)
 	}
 	if ip = net.ParseIP(host); ip == nil {
-		return nil, errors.New("invalid IP address")
+		return nil, errors.New("[DISCV5] invalid IP address")
 	}
 	// Ensure the IP is 4 bytes long for IPv4 addresses.
 	if ipv4 := ip.To4(); ipv4 != nil {
@@ -176,14 +176,14 @@ func parseComplete(rawurl string) (*Node, error) {
 	}
 	// Parse the port numbers.
 	if tcpPort, err = strconv.ParseUint(port, 10, 16); err != nil {
-		return nil, errors.New("invalid port")
+		return nil, errors.New("[DISCV5] invalid port")
 	}
 	udpPort = tcpPort
 	qv := u.Query()
 	if qv.Get("discport") != "" {
 		udpPort, err = strconv.ParseUint(qv.Get("discport"), 10, 16)
 		if err != nil {
-			return nil, errors.New("invalid discport in query")
+			return nil, errors.New("[DISCV5] invalid discport in query")
 		}
 	}
 	return NewNode(id, ip, uint16(udpPort), uint16(tcpPort)), nil
@@ -193,7 +193,7 @@ func parseComplete(rawurl string) (*Node, error) {
 func MustParseNode(rawurl string) *Node {
 	n, err := ParseNode(rawurl)
 	if err != nil {
-		panic("invalid node URL: " + err.Error())
+		panic("[DISCV5] invalid node URL: " + err.Error())
 	}
 	return n
 }
@@ -269,7 +269,7 @@ func HexID(in string) (NodeID, error) {
 	if err != nil {
 		return id, err
 	} else if len(b) != len(id) {
-		return id, fmt.Errorf("wrong length, want %d hex chars", len(id)*2)
+		return id, fmt.Errorf("[DISCV5] wrong length, want %d hex chars", len(id)*2)
 	}
 	copy(id[:], b)
 	return id, nil
@@ -290,7 +290,7 @@ func PubkeyID(pub *ecdsa.PublicKey) NodeID {
 	var id NodeID
 	pbytes := elliptic.Marshal(pub.Curve, pub.X, pub.Y)
 	if len(pbytes)-1 != len(id) {
-		panic(fmt.Errorf("need %d bit pubkey, got %d bits", (len(id)+1)*8, len(pbytes)))
+		panic(fmt.Errorf("[DISCV5] need %d bit pubkey, got %d bits", (len(id)+1)*8, len(pbytes)))
 	}
 	copy(id[:], pbytes[1:])
 	return id
@@ -304,7 +304,7 @@ func (n NodeID) Pubkey() (*ecdsa.PublicKey, error) {
 	p.X.SetBytes(n[:half])
 	p.Y.SetBytes(n[half:])
 	if !p.Curve.IsOnCurve(p.X, p.Y) {
-		return nil, errors.New("id is invalid secp256k1 curve point")
+		return nil, errors.New("[DISCV5] id is invalid secp256k1 curve point")
 	}
 	return p, nil
 }
@@ -317,7 +317,7 @@ func recoverNodeID(hash, sig []byte) (id NodeID, err error) {
 		return id, err
 	}
 	if len(pubkey)-1 != len(id) {
-		return id, fmt.Errorf("recovered pubkey has %d bits, want %d bits", len(pubkey)*8, (len(id)+1)*8)
+		return id, fmt.Errorf("[DISCV5] recovered pubkey has %d bits, want %d bits", len(pubkey)*8, (len(id)+1)*8)
 	}
 	for i := range id {
 		id[i] = pubkey[i+1]
