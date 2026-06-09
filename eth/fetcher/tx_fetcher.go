@@ -445,7 +445,7 @@ func (f *TxFetcher) loop() {
 				if time.Duration(f.clock.Now()-instance)+txGatherSlack > txArriveTimeout {
 					// Transaction expired without propagation, schedule for retrieval
 					if f.announced[hash] != nil {
-						panic("announce tracker already contains waitlist item")
+						panic("[Fetcher] announce tracker already contains waitlist item")
 					}
 					f.announced[hash] = f.waitlist[hash]
 					for peer := range f.waitlist[hash] {
@@ -492,7 +492,7 @@ func (f *TxFetcher) loop() {
 						}
 						// Move the delivery back from fetching to queued
 						if _, ok := f.announced[hash]; ok {
-							panic("announced tracker already contains alternate item")
+							panic("[Fetcher] announced tracker already contains alternate item")
 						}
 						if f.alternates[hash] != nil { // nil if tx was broadcast during fetch
 							f.announced[hash] = f.alternates[hash]
@@ -565,7 +565,7 @@ func (f *TxFetcher) loop() {
 				// Make sure something was pending, nuke it
 				req := f.requests[delivery.origin]
 				if req == nil {
-					log.Warn("Unexpected transaction delivery", "peer", delivery.origin)
+					log.Warn("[Fetcher] Unexpected transaction delivery", "peer", delivery.origin)
 					break
 				}
 				delete(f.requests, delivery.origin)
@@ -600,7 +600,7 @@ func (f *TxFetcher) loop() {
 						}
 						if len(f.alternates[hash]) > 0 {
 							if _, ok := f.announced[hash]; ok {
-								panic(fmt.Sprintf("announced tracker already contains alternate item: %v", f.announced[hash]))
+								panic(fmt.Sprintf("[Fetcher] announced tracker already contains alternate item: %v", f.announced[hash]))
 							}
 							f.announced[hash] = f.alternates[hash]
 						}
@@ -777,7 +777,7 @@ func (f *TxFetcher) scheduleFetches(timer *mclock.Timer, timeout chan struct{}, 
 				f.fetching[hash] = peer
 
 				if _, ok := f.alternates[hash]; ok {
-					panic(fmt.Sprintf("alternate tracker already contains fetching item: %v", f.alternates[hash]))
+					panic(fmt.Sprintf("[Fetcher] alternate tracker already contains fetching item: %v", f.alternates[hash]))
 				}
 				f.alternates[hash] = f.announced[hash]
 				delete(f.announced, hash)
