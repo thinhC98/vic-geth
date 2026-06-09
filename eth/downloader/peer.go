@@ -102,13 +102,13 @@ func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int
 	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse)
 }
 func (w *lightPeerWrapper) RequestBodies([]common.Hash) error {
-	panic("RequestBodies not supported in light client mode sync")
+	panic("[Downloader] RequestBodies not supported in light client mode sync")
 }
 func (w *lightPeerWrapper) RequestReceipts([]common.Hash) error {
-	panic("RequestReceipts not supported in light client mode sync")
+	panic("[Downloader] RequestReceipts not supported in light client mode sync")
 }
 func (w *lightPeerWrapper) RequestNodeData([]common.Hash) error {
-	panic("RequestNodeData not supported in light client mode sync")
+	panic("[Downloader] RequestNodeData not supported in light client mode sync")
 }
 
 // newPeerConnection creates a new downloader peer.
@@ -258,7 +258,7 @@ func (p *peerConnection) setIdle(elapsed time.Duration, delivered int, throughpu
 	*throughput = (1-measurementImpact)*(*throughput) + measurementImpact*measured
 	p.rtt = time.Duration((1-measurementImpact)*float64(p.rtt) + measurementImpact*float64(elapsed))
 
-	p.log.Trace("Peer throughput measurements updated",
+	p.log.Trace("[Downloader] Peer throughput measurements updated",
 		"hps", p.headerThroughput, "bps", p.blockThroughput,
 		"rps", p.receiptThroughput, "sps", p.stateThroughput,
 		"miss", len(p.lacking), "rtt", p.rtt)

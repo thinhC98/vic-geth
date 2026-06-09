@@ -55,7 +55,7 @@ func (mode SyncMode) MarshalText() ([]byte, error) {
 	case LightSync:
 		return []byte("light"), nil
 	default:
-		return nil, fmt.Errorf("unknown sync mode %d", mode)
+		return nil, fmt.Errorf("[Downloader] unknown sync mode %d", mode)
 	}
 }
 
@@ -68,7 +68,7 @@ func (mode *SyncMode) UnmarshalText(text []byte) error {
 	case "light":
 		*mode = LightSync
 	default:
-		return fmt.Errorf(`unknown sync mode %q, want "full", "fast" or "light"`, text)
+		return fmt.Errorf(`[Downloader] unknown sync mode %q, want "full", "fast" or "light"`, text)
 	}
 	return nil
 }

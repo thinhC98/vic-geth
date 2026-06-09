@@ -102,7 +102,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 		timeout  = make(chan *stateReq)       // Timed out active requests
 	)
 	// Run the state sync.
-	log.Trace("State sync starting", "root", s.root)
+	log.Trace("[Downloader] State sync starting", "root", s.root)
 	go s.run()
 	defer s.Cancel()
 
@@ -144,7 +144,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 			// Discard any data not requested (or previously timed out)
 			req := active[pack.PeerId()]
 			if req == nil {
-				log.Debug("Unrequested node data", "peer", pack.PeerId(), "len", pack.Items())
+				log.Debug("[Downloader] Unrequested node data", "peer", pack.PeerId(), "len", pack.Items())
 				continue
 			}
 			// Finalize the request and queue up for processing
@@ -192,7 +192,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 			// request is never honored, alas we must not silently overwrite it, as that
 			// causes valid requests to go missing and sync to get stuck.
 			if old := active[req.peer.id]; old != nil {
-				log.Warn("Busy peer assigned new state fetch", "peer", old.peer.id)
+				log.Warn("[Downloader] Busy peer assigned new state fetch", "peer", old.peer.id)
 				// Move the previous request to the finished set
 				old.timer.Stop()
 				old.dropped = true
@@ -212,7 +212,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 // will time out. This is to ensure that when the next stateSync starts working, all peers
 // are marked as idle and de facto _are_ idle.
 func (d *Downloader) spindownStateSync(active map[string]*stateReq, finished []*stateReq, timeout chan *stateReq, peerDrop chan *peerConnection) {
-	log.Trace("State sync spinning down", "active", len(active), "finished", len(finished))
+	log.Trace("[Downloader] State sync spinning down", "active", len(active), "finished", len(finished))
 	for len(active) > 0 {
 		var (
 			req    *stateReq
@@ -234,7 +234,7 @@ func (d *Downloader) spindownStateSync(active map[string]*stateReq, finished []*
 		if req == nil {
 			continue
 		}
-		req.peer.log.Trace("State peer marked idle (spindown)", "req.items", int(req.nItems), "reason", reason)
+		req.peer.log.Trace("[Downloader] State peer marked idle (spindown)", "req.items", int(req.nItems), "reason", reason)
 		req.timer.Stop()
 		delete(active, req.peer.id)
 		req.peer.SetNodeDataIdle(int(req.nItems), time.Now())
@@ -360,15 +360,15 @@ func (s *stateSync) loop() (err error) {
 
 		case req := <-s.deliver:
 			// Response, disconnect or timeout triggered, drop the peer if stalling
-			log.Trace("Received node data response", "peer", req.peer.id, "count", len(req.response), "dropped", req.dropped, "timeout", !req.dropped && req.timedOut())
+			log.Trace("[Downloader] Received node data response", "peer", req.peer.id, "count", len(req.response), "dropped", req.dropped, "timeout", !req.dropped && req.timedOut())
 			if req.nItems <= 2 && !req.dropped && req.timedOut() {
 				// 2 items are the minimum requested, if even that times out, we've no use of
 				// this peer at the moment.
-				log.Warn("Stalling state sync, dropping peer", "peer", req.peer.id)
+				log.Warn("[Downloader] Stalling state sync, dropping peer", "peer", req.peer.id)
 				if s.d.dropPeer == nil {
 					// The dropPeer method is nil when `--copydb` is used for a local copy.
 					// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
-					req.peer.log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", req.peer.id)
+					req.peer.log.Warn("[Downloader] Downloader wants to drop peer, but peerdrop-function is not set", "peer", req.peer.id)
 				} else {
 					s.d.dropPeer(req.peer.id)
 
@@ -387,7 +387,7 @@ func (s *stateSync) loop() (err error) {
 			delivered, err := s.process(req)
 			req.peer.SetNodeDataIdle(delivered, req.delivered)
 			if err != nil {
-				log.Warn("Node data write error", "err", err)
+				log.Warn("[Downloader] Node data write error", "err", err)
 				return err
 			}
 		}
@@ -405,7 +405,7 @@ func (s *stateSync) commit(force bool) error {
 		return err
 	}
 	if err := b.Write(); err != nil {
-		return fmt.Errorf("DB write error: %v", err)
+		return fmt.Errorf("[Downloader] DB write error: %v", err)
 	}
 	s.updateStats(s.numUncommitted, 0, 0, time.Since(start))
 	s.numUncommitted = 0
@@ -427,7 +427,7 @@ func (s *stateSync) assignTasks() {
 
 		// If the peer was assigned tasks to fetch, send the network request
 		if len(nodes)+len(codes) > 0 {
-			req.peer.log.Trace("Requesting batch of state data", "nodes", len(nodes), "codes", len(codes), "root", s.root)
+			req.peer.log.Trace("[Downloader] Requesting batch of state data", "nodes", len(nodes), "codes", len(codes), "root", s.root)
 			select {
 			case s.d.trackStateReq <- req:
 				req.peer.FetchNodeData(append(nodes, codes...)) // Unified retrieval under eth/6x
@@ -529,7 +529,7 @@ func (s *stateSync) process(req *stateReq) (int, error) {
 		case trie.ErrAlreadyProcessed:
 			duplicate++
 		default:
-			return successful, fmt.Errorf("invalid state node %s: %v", hash.TerminalString(), err)
+			return successful, fmt.Errorf("[Downloader] invalid state node %s: %v", hash.TerminalString(), err)
 		}
 		// Delete from both queues (one delivery is enough for the syncer)
 		delete(req.trieTasks, hash)
@@ -547,7 +547,7 @@ func (s *stateSync) process(req *stateReq) (int, error) {
 		// If we've requested the node too many times already, it may be a malicious
 		// sync where nobody has the right data. Abort.
 		if len(task.attempts) >= npeers {
-			return successful, fmt.Errorf("trie node %s failed with all peers (%d tries, %d peers)", hash.TerminalString(), len(task.attempts), npeers)
+			return successful, fmt.Errorf("[Downloader] trie node %s failed with all peers (%d tries, %d peers)", hash.TerminalString(), len(task.attempts), npeers)
 		}
 		// Missing item, place into the retry queue.
 		s.trieTasks[hash] = task
@@ -562,7 +562,7 @@ func (s *stateSync) process(req *stateReq) (int, error) {
 		// If we've requested the node too many times already, it may be a malicious
 		// sync where nobody has the right data. Abort.
 		if len(task.attempts) >= npeers {
-			return successful, fmt.Errorf("byte code %s failed with all peers (%d tries, %d peers)", hash.TerminalString(), len(task.attempts), npeers)
+			return successful, fmt.Errorf("[Downloader] byte code %s failed with all peers (%d tries, %d peers)", hash.TerminalString(), len(task.attempts), npeers)
 		}
 		// Missing item, place into the retry queue.
 		s.codeTasks[hash] = task
@@ -594,7 +594,7 @@ func (s *stateSync) updateStats(written, duplicate, unexpected int, duration tim
 	s.d.syncStatsState.unexpected += uint64(unexpected)
 
 	if written > 0 || duplicate > 0 || unexpected > 0 {
-		log.Info("Imported new state entries", "count", written, "elapsed", common.PrettyDuration(duration), "processed", s.d.syncStatsState.processed, "pending", s.d.syncStatsState.pending, "trieretry", len(s.trieTasks), "coderetry", len(s.codeTasks), "duplicate", s.d.syncStatsState.duplicate, "unexpected", s.d.syncStatsState.unexpected)
+		log.Info("[Downloader] Imported new state entries", "count", written, "elapsed", common.PrettyDuration(duration), "processed", s.d.syncStatsState.processed, "pending", s.d.syncStatsState.pending, "trieretry", len(s.trieTasks), "coderetry", len(s.codeTasks), "duplicate", s.d.syncStatsState.duplicate, "unexpected", s.d.syncStatsState.unexpected)
 	}
 	if written > 0 {
 		rawdb.WriteFastTrieProgress(s.d.stateDB, s.d.syncStatsState.processed)

@@ -111,7 +111,7 @@ func (r *resultStore) getFetchResult(headerNumber uint64) (item *fetchResult, in
 	stale = index < 0
 
 	if index >= len(r.items) {
-		err = fmt.Errorf("%w: index allocation went beyond available resultStore space "+
+		err = fmt.Errorf("[Downloader] %w: index allocation went beyond available resultStore space "+
 			"(index [%d] = header [%d] - resultOffset [%d], len(resultStore) = %d", errInvalidChain,
 			index, headerNumber, r.resultOffset, len(r.items))
 		return nil, index, stale, throttle, err

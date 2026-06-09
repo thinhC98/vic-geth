@@ -258,7 +258,7 @@ func (q *queue) ScheduleSkeleton(from uint64, skeleton []*types.Header) {
 
 	// No skeleton retrieval can be in progress, fail hard if so (huge implementation bug)
 	if q.headerResults != nil {
-		panic("skeleton assembly already in progress")
+		panic("[Downloader] skeleton assembly already in progress")
 	}
 	// Schedule all the header retrieval tasks for the skeleton assembly
 	q.headerTaskPool = make(map[uint64]*types.Header)
@@ -301,18 +301,18 @@ func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 		// Make sure chain order is honoured and preserved throughout
 		hash := header.Hash()
 		if header.Number == nil || header.Number.Uint64() != from {
-			log.Warn("Header broke chain ordering", "number", header.Number, "hash", hash, "expected", from)
+			log.Warn("[Downloader] Header broke chain ordering", "number", header.Number, "hash", hash, "expected", from)
 			break
 		}
 		if q.headerHead != (common.Hash{}) && q.headerHead != header.ParentHash {
-			log.Warn("Header broke chain ancestry", "number", header.Number, "hash", hash)
+			log.Warn("[Downloader] Header broke chain ancestry", "number", header.Number, "hash", hash)
 			break
 		}
 		// Make sure no duplicate requests are executed
 		// We cannot skip this, even if the block is empty, since this is
 		// what triggers the fetchResult creation.
 		if _, ok := q.blockTaskPool[hash]; ok {
-			log.Warn("Header already scheduled for block fetch", "number", header.Number, "hash", hash)
+			log.Warn("[Downloader] Header already scheduled for block fetch", "number", header.Number, "hash", hash)
 		} else {
 			q.blockTaskPool[hash] = header
 			q.blockTaskQueue.Push(header, -int64(header.Number.Uint64()))
@@ -320,7 +320,7 @@ func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 		// Queue for receipt retrieval
 		if q.mode == FastSync && !header.EmptyReceipts() {
 			if _, ok := q.receiptTaskPool[hash]; ok {
-				log.Warn("Header already scheduled for receipt fetch", "number", header.Number, "hash", hash)
+				log.Warn("[Downloader] Header already scheduled for receipt fetch", "number", header.Number, "hash", hash)
 			} else {
 				q.receiptTaskPool[hash] = header
 				q.receiptTaskQueue.Push(header, -int64(header.Number.Uint64()))
@@ -388,7 +388,7 @@ func (q *queue) Results(block bool) []*fetchResult {
 		q.lastStatLog = time.Now()
 		info := q.Stats()
 		info = append(info, "throttle", throttleThreshold)
-		log.Info("Downloader queue stats", info...)
+		log.Info("[Downloader] Downloader queue stats", info...)
 	}
 	return results
 }
@@ -511,7 +511,7 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 			progress = true
 			delete(taskPool, header.Hash())
 			proc = proc - 1
-			log.Error("Fetch reservation already delivered", "number", header.Number.Uint64())
+			log.Error("[Downloader] Fetch reservation already delivered", "number", header.Number.Uint64())
 			continue
 		}
 		if throttle {
@@ -524,7 +524,7 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 		}
 		if err != nil {
 			// this most definitely should _not_ happen
-			log.Warn("Failed to reserve headers", "err", err)
+			log.Warn("[Downloader] Failed to reserve headers", "err", err)
 			// There are no resultslots available. Leave it in the task queue
 			break
 		}
@@ -704,10 +704,10 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 	accepted := len(headers) == MaxHeaderFetch
 	if accepted {
 		if headers[0].Number.Uint64() != request.From {
-			log.Trace("First header broke chain ordering", "peer", id, "number", headers[0].Number, "hash", headers[0].Hash(), request.From)
+			log.Trace("[Downloader] First header broke chain ordering", "peer", id, "number", headers[0].Number, "hash", headers[0].Hash(), request.From)
 			accepted = false
 		} else if headers[len(headers)-1].Hash() != target {
-			log.Trace("Last header broke skeleton structure ", "peer", id, "number", headers[len(headers)-1].Number, "hash", headers[len(headers)-1].Hash(), "expected", target)
+			log.Trace("[Downloader] Last header broke skeleton structure ", "peer", id, "number", headers[len(headers)-1].Number, "hash", headers[len(headers)-1].Hash(), "expected", target)
 			accepted = false
 		}
 	}
@@ -716,12 +716,12 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 		for i, header := range headers[1:] {
 			hash := header.Hash()
 			if want := request.From + 1 + uint64(i); header.Number.Uint64() != want {
-				log.Warn("Header broke chain ordering", "peer", id, "number", header.Number, "hash", hash, "expected", want)
+				log.Warn("[Downloader] Header broke chain ordering", "peer", id, "number", header.Number, "hash", hash, "expected", want)
 				accepted = false
 				break
 			}
 			if parentHash != header.ParentHash {
-				log.Warn("Header broke chain ancestry", "peer", id, "number", header.Number, "hash", hash)
+				log.Warn("[Downloader] Header broke chain ancestry", "peer", id, "number", header.Number, "hash", hash)
 				accepted = false
 				break
 			}
@@ -731,7 +731,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 	}
 	// If the batch of headers wasn't accepted, mark as unavailable
 	if !accepted {
-		log.Trace("Skeleton filling not accepted", "peer", id, "from", request.From)
+		log.Trace("[Downloader] Skeleton filling not accepted", "peer", id, "from", request.From)
 
 		miss := q.headerPeerMiss[id]
 		if miss == nil {
@@ -741,7 +741,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 		miss[request.From] = struct{}{}
 
 		q.headerTaskQueue.Push(request.From, -int64(request.From))
-		return 0, errors.New("delivery not accepted")
+		return 0, errors.New("[Downloader] delivery not accepted")
 	}
 	// Clean up a successful fetch and try to deliver any sub-results
 	copy(q.headerResults[request.From-q.headerOffset:], headers)
@@ -758,7 +758,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 
 		select {
 		case headerProcCh <- process:
-			log.Trace("Pre-scheduled new headers", "peer", id, "count", len(process), "from", process[0].Number)
+			log.Trace("[Downloader] Pre-scheduled new headers", "peer", id, "count", len(process), "from", process[0].Number)
 			q.headerProced += len(process)
 		default:
 		}
@@ -867,7 +867,7 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header,
 			// else: betweeen here and above, some other peer filled this result,
 			// or it was indeed a no-op. This should not happen, but if it does it's
 			// not something to panic about
-			log.Error("Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
+			log.Error("[Downloader] Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
 			failure = errStaleDelivery
 		}
 		// Clean up a successful fetch
@@ -890,9 +890,9 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header,
 		return accepted, failure
 	}
 	if accepted > 0 {
-		return accepted, fmt.Errorf("partial failure: %v", failure)
+		return accepted, fmt.Errorf("[Downloader] partial failure: %v", failure)
 	}
-	return accepted, fmt.Errorf("%w: %v", failure, errStaleDelivery)
+	return accepted, fmt.Errorf("[Downloader] %w: %v", failure, errStaleDelivery)
 }
 
 // Prepare configures the result cache to allow accepting and caching inbound
