@@ -95,7 +95,7 @@ func (pm *ProtocolManager) txsyncLoop64() {
 	// send starts a sending a pack of transactions from the sync.
 	send := func(s *txsync) {
 		if s.p.version >= eth65 {
-			panic("initial transaction syncer running on eth/65+")
+			panic("[ETH] initial transaction syncer running on eth/65+")
 		}
 		// Fill pack with transactions up to the target size.
 		size := common.StorageSize(0)
@@ -111,7 +111,7 @@ func (pm *ProtocolManager) txsyncLoop64() {
 			delete(pending, s.p.ID())
 		}
 		// Send the pack in the background.
-		s.p.Log().Trace("Sending batch of transactions", "count", len(pack.txs), "bytes", size)
+		s.p.Log().Trace("[ETH] Sending batch of transactions", "count", len(pack.txs), "bytes", size)
 		sending = true
 		go func() { done <- pack.p.SendTransactions64(pack.txs) }()
 	}
@@ -141,7 +141,7 @@ func (pm *ProtocolManager) txsyncLoop64() {
 			sending = false
 			// Stop tracking peers that cause send failures.
 			if err != nil {
-				pack.p.Log().Debug("Transaction send failed", "err", err)
+				pack.p.Log().Debug("[ETH] Transaction send failed", "err", err)
 				delete(pending, pack.p.ID())
 			}
 			// Schedule the next send.
@@ -315,7 +315,7 @@ func (pm *ProtocolManager) doSync(op *chainSyncOp) error {
 			rawdb.WriteFastTxLookupLimit(pm.chaindb, limit)
 		} else if *stored != limit {
 			pm.blockchain.SetTxLookupLimit(*stored)
-			log.Warn("Update txLookup limit", "provided", limit, "updated", *stored)
+			log.Warn("[ETH] Update txLookup limit", "provided", limit, "updated", *stored)
 		}
 	}
 	// Run the sync cycle, and disable fast sync if we're past the pivot block
@@ -324,7 +324,7 @@ func (pm *ProtocolManager) doSync(op *chainSyncOp) error {
 		return err
 	}
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
-		log.Info("Fast sync complete, auto disabling")
+		log.Info("[ETH] Fast sync complete, auto disabling")
 		atomic.StoreUint32(&pm.fastSync, 0)
 	}
 

@@ -176,7 +176,7 @@ func (hn *hashOrNumber) EncodeRLP(w io.Writer) error {
 		return rlp.Encode(w, hn.Number)
 	}
 	if hn.Number != 0 {
-		return fmt.Errorf("both origin hash (%x) and number (%d) provided", hn.Hash, hn.Number)
+		return fmt.Errorf("[ETH] both origin hash (%x) and number (%d) provided", hn.Hash, hn.Number)
 	}
 	return rlp.Encode(w, hn.Hash)
 }
@@ -193,7 +193,7 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 		case size <= 8:
 			err = rlp.DecodeBytes(origin, &hn.Number)
 		default:
-			err = fmt.Errorf("invalid input size %d for origin", size)
+			err = fmt.Errorf("[ETH] invalid input size %d for origin", size)
 		}
 	}
 	return err
@@ -213,7 +213,7 @@ func (request *newBlockData) sanityCheck() error {
 	//TD at mainnet block #7753254 is 76 bits. If it becomes 100 million times
 	// larger, it will still fit within 100 bits
 	if tdlen := request.TD.BitLen(); tdlen > 100 {
-		return fmt.Errorf("too large block TD: bitlen %d", tdlen)
+		return fmt.Errorf("[ETH] too large block TD: bitlen %d", tdlen)
 	}
 	return nil
 }

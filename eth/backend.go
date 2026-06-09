@@ -94,13 +94,13 @@ type Ethereum struct {
 func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
-		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
+		return nil, errors.New("[ETH] can't run eth.Ethereum in light sync mode, use les.LightEthereum")
 	}
 	if !config.SyncMode.IsValid() {
-		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
+		return nil, fmt.Errorf("[ETH] invalid sync mode %d", config.SyncMode)
 	}
 	if config.Miner.GasPrice == nil || config.Miner.GasPrice.Cmp(common.Big0) <= 0 {
-		log.Warn("Sanitizing invalid miner gas price", "provided", config.Miner.GasPrice, "updated", DefaultConfig.Miner.GasPrice)
+		log.Warn("[ETH] Sanitizing invalid miner gas price", "provided", config.Miner.GasPrice, "updated", DefaultConfig.Miner.GasPrice)
 		config.Miner.GasPrice = new(big.Int).Set(DefaultConfig.Miner.GasPrice)
 	}
 	if config.NoPruning && config.TrieDirtyCache > 0 {
@@ -112,7 +112,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		}
 		config.TrieDirtyCache = 0
 	}
-	log.Info("Allocated trie memory caches", "clean", common.StorageSize(config.TrieCleanCache)*1024*1024, "dirty", common.StorageSize(config.TrieDirtyCache)*1024*1024)
+	log.Info("[ETH] Allocated trie memory caches", "clean", common.StorageSize(config.TrieCleanCache)*1024*1024, "dirty", common.StorageSize(config.TrieDirtyCache)*1024*1024)
 
 	// Assemble the Ethereum object
 	chainDb, err := stack.OpenDatabaseWithFreezer("chaindata", config.DatabaseCache, config.DatabaseHandles, config.DatabaseFreezer, "eth/db/chaindata/")
@@ -123,7 +123,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
-	log.Info("Initialised chain configuration", "config", chainConfig)
+	log.Info("[ETH] Initialised chain configuration", "config", chainConfig)
 
 	eth := &Ethereum{
 		config:            config,
@@ -145,13 +145,13 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	if bcVersion != nil {
 		dbVer = fmt.Sprintf("%d", *bcVersion)
 	}
-	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId, "dbversion", dbVer)
+	log.Info("[ETH] Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId, "dbversion", dbVer)
 
 	if !config.SkipBcVersionCheck {
 		if bcVersion != nil && *bcVersion > core.BlockChainVersion {
-			return nil, fmt.Errorf("database version is v%d, Geth %s only supports v%d", *bcVersion, params.VersionWithMeta, core.BlockChainVersion)
+			return nil, fmt.Errorf("[ETH] database version is v%d, Geth %s only supports v%d", *bcVersion, params.VersionWithMeta, core.BlockChainVersion)
 		} else if bcVersion == nil || *bcVersion < core.BlockChainVersion {
-			log.Warn("Upgrade blockchain database version", "from", dbVer, "to", core.BlockChainVersion)
+			log.Warn("[ETH] Upgrade blockchain database version", "from", dbVer, "to", core.BlockChainVersion)
 			rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 		}
 	}
@@ -180,7 +180,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
-		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
+		log.Warn("[ETH] Rewinding chain to upgrade configuration", "err", compat)
 		eth.blockchain.SetHead(compat.RewindTo)
 		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
@@ -264,7 +264,7 @@ func makeExtraData(extra []byte) []byte {
 		})
 	}
 	if uint64(len(extra)) > params.MaximumExtraDataSize {
-		log.Warn("Miner extra data exceed limit", "extra", hexutil.Bytes(extra), "limit", params.MaximumExtraDataSize)
+		log.Warn("[ETH] Miner extra data exceed limit", "extra", hexutil.Bytes(extra), "limit", params.MaximumExtraDataSize)
 		extra = nil
 	}
 	return extra
@@ -283,13 +283,13 @@ func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, co
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
 	case ethash.ModeFake:
-		log.Warn("Ethash used in fake mode")
+		log.Warn("[ETH] Ethash used in fake mode")
 		return ethash.NewFaker()
 	case ethash.ModeTest:
-		log.Warn("Ethash used in test mode")
+		log.Warn("[ETH] Ethash used in test mode")
 		return ethash.NewTester(nil, noverify)
 	case ethash.ModeShared:
-		log.Warn("Ethash used in shared mode")
+		log.Warn("[ETH] Ethash used in shared mode")
 		return ethash.NewShared()
 	default:
 		engine := ethash.New(ethash.Config{
@@ -384,11 +384,11 @@ func (s *Ethereum) Etherbase() (eb common.Address, err error) {
 			s.etherbase = etherbase
 			s.lock.Unlock()
 
-			log.Info("Etherbase automatically configured", "address", etherbase)
+			log.Info("[ETH] Etherbase automatically configured", "address", etherbase)
 			return etherbase, nil
 		}
 	}
-	return common.Address{}, fmt.Errorf("etherbase must be explicitly specified")
+	return common.Address{}, fmt.Errorf("[ETH] etherbase must be explicitly specified")
 }
 
 // isLocalBlock checks whether the specified block is mined
@@ -399,7 +399,7 @@ func (s *Ethereum) Etherbase() (eb common.Address, err error) {
 func (s *Ethereum) isLocalBlock(block *types.Block) bool {
 	author, err := s.engine.Author(block.Header())
 	if err != nil {
-		log.Warn("Failed to retrieve block author", "number", block.NumberU64(), "hash", block.Hash(), "err", err)
+		log.Warn("[ETH] Failed to retrieve block author", "number", block.NumberU64(), "hash", block.Hash(), "err", err)
 		return false
 	}
 	// Check whether the given address is etherbase.
@@ -488,7 +488,7 @@ func (s *Ethereum) StartMining(threads int) error {
 		SetThreads(threads int)
 	}
 	if th, ok := s.engine.(threaded); ok {
-		log.Info("Updated mining threads", "threads", threads)
+		log.Info("[ETH] Updated mining threads", "threads", threads)
 		if threads == 0 {
 			threads = -1 // Disable the miner from within
 		}
@@ -505,22 +505,22 @@ func (s *Ethereum) StartMining(threads int) error {
 		// Configure the local mining address
 		eb, err := s.Etherbase()
 		if err != nil {
-			log.Error("Cannot start mining without etherbase", "err", err)
-			return fmt.Errorf("etherbase missing: %v", err)
+			log.Error("[ETH] Cannot start mining without etherbase", "err", err)
+			return fmt.Errorf("[ETH] etherbase missing: %v", err)
 		}
 		if clique, ok := s.engine.(*clique.Clique); ok {
 			wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
 			if wallet == nil || err != nil {
-				log.Error("Etherbase account unavailable locally", "err", err)
-				return fmt.Errorf("signer missing: %v", err)
+				log.Error("[ETH] Etherbase account unavailable locally", "err", err)
+				return fmt.Errorf("[ETH] signer missing: %v", err)
 			}
 			clique.Authorize(eb, wallet.SignData)
 		}
 		if posvEngine, ok := s.engine.(*posv.Posv); ok {
 			wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
 			if wallet == nil || err != nil {
-				log.Error("Etherbase account unavailable locally", "err", err)
-				return fmt.Errorf("signer missing: %v", err)
+				log.Error("[ETH] Etherbase account unavailable locally", "err", err)
+				return fmt.Errorf("[ETH] signer missing: %v", err)
 			}
 			posvEngine.Authorize(eb, wallet.SignData)
 		}
@@ -588,7 +588,7 @@ func (s *Ethereum) Start() error {
 	maxPeers := s.p2pServer.MaxPeers
 	if s.config.LightServ > 0 {
 		if s.config.LightPeers >= s.p2pServer.MaxPeers {
-			return fmt.Errorf("invalid peer config: light peer count (%d) >= total peer count (%d)", s.config.LightPeers, s.p2pServer.MaxPeers)
+			return fmt.Errorf("[ETH] invalid peer config: light peer count (%d) >= total peer count (%d)", s.config.LightPeers, s.p2pServer.MaxPeers)
 		}
 		maxPeers -= s.config.LightPeers
 	}

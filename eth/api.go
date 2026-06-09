@@ -170,7 +170,7 @@ func NewPrivateAdminAPI(eth *Ethereum) *PrivateAdminAPI {
 // or a range of blocks if first and last are non-nil
 func (api *PrivateAdminAPI) ExportChain(file string, first *uint64, last *uint64) (bool, error) {
 	if first == nil && last != nil {
-		return false, errors.New("last cannot be specified without first")
+		return false, errors.New("[ETH] last cannot be specified without first")
 	}
 	if first != nil && last == nil {
 		head := api.eth.BlockChain().CurrentHeader().Number.Uint64()
@@ -179,7 +179,7 @@ func (api *PrivateAdminAPI) ExportChain(file string, first *uint64, last *uint64
 	if _, err := os.Stat(file); err == nil {
 		// File already exists. Allowing overwrite could be a DoS vecotor,
 		// since the 'file' may point to arbitrary paths on the drive
-		return false, errors.New("location would overwrite an existing file")
+		return false, errors.New("[ETH] location would overwrite an existing file")
 	}
 	// Make sure we can create the file to export into
 	out, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
@@ -242,7 +242,7 @@ func (api *PrivateAdminAPI) ImportChain(file string) (bool, error) {
 			if err := stream.Decode(block); err == io.EOF {
 				break
 			} else if err != nil {
-				return false, fmt.Errorf("block %d: failed to parse: %v", index, err)
+				return false, fmt.Errorf("[ETH] block %d: failed to parse: %v", index, err)
 			}
 			blocks = append(blocks, block)
 			index++
@@ -257,7 +257,7 @@ func (api *PrivateAdminAPI) ImportChain(file string) (bool, error) {
 		}
 		// Import the batch and reset the buffer
 		if _, err := api.eth.BlockChain().InsertChain(blocks); err != nil {
-			return false, fmt.Errorf("batch %d: failed to insert: %v", batch, err)
+			return false, fmt.Errorf("[ETH] batch %d: failed to insert: %v", batch, err)
 		}
 		blocks = blocks[:0]
 	}
@@ -292,7 +292,7 @@ func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error
 		block = api.eth.blockchain.GetBlockByNumber(uint64(blockNr))
 	}
 	if block == nil {
-		return state.Dump{}, fmt.Errorf("block #%d not found", blockNr)
+		return state.Dump{}, fmt.Errorf("[ETH] block #%d not found", blockNr)
 	}
 	stateDb, err := api.eth.BlockChain().StateAt(block.Root())
 	if err != nil {
@@ -318,7 +318,7 @@ func (api *PrivateDebugAPI) Preimage(ctx context.Context, hash common.Hash) (hex
 	if preimage := rawdb.ReadPreimage(api.eth.ChainDb(), hash); preimage != nil {
 		return preimage, nil
 	}
-	return nil, errors.New("unknown preimage")
+	return nil, errors.New("[ETH] unknown preimage")
 }
 
 // BadBlockArgs represents the entries in the list returned when bad blocks are queried.
@@ -373,7 +373,7 @@ func (api *PublicDebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, sta
 				block = api.eth.blockchain.GetBlockByNumber(uint64(number))
 			}
 			if block == nil {
-				return state.IteratorDump{}, fmt.Errorf("block #%d not found", number)
+				return state.IteratorDump{}, fmt.Errorf("[ETH] block #%d not found", number)
 			}
 			stateDb, err = api.eth.BlockChain().StateAt(block.Root())
 			if err != nil {
@@ -383,14 +383,14 @@ func (api *PublicDebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, sta
 	} else if hash, ok := blockNrOrHash.Hash(); ok {
 		block := api.eth.blockchain.GetBlockByHash(hash)
 		if block == nil {
-			return state.IteratorDump{}, fmt.Errorf("block %s not found", hash.Hex())
+			return state.IteratorDump{}, fmt.Errorf("[ETH] block %s not found", hash.Hex())
 		}
 		stateDb, err = api.eth.BlockChain().StateAt(block.Root())
 		if err != nil {
 			return state.IteratorDump{}, err
 		}
 	} else {
-		return state.IteratorDump{}, errors.New("either block number or block hash must be specified")
+		return state.IteratorDump{}, errors.New("[ETH] either block number or block hash must be specified")
 	}
 
 	if maxResults > AccountRangeMaxResults || maxResults <= 0 {
@@ -417,7 +417,7 @@ func (api *PrivateDebugAPI) StorageRangeAt(blockHash common.Hash, txIndex int, c
 	// Retrieve the block
 	block := api.eth.blockchain.GetBlockByHash(blockHash)
 	if block == nil {
-		return StorageRangeResult{}, fmt.Errorf("block %#x not found", blockHash)
+		return StorageRangeResult{}, fmt.Errorf("[ETH] block %#x not found", blockHash)
 	}
 	_, _, statedb, err := api.computeTxEnv(block, txIndex, 0)
 	if err != nil {
@@ -425,7 +425,7 @@ func (api *PrivateDebugAPI) StorageRangeAt(blockHash common.Hash, txIndex int, c
 	}
 	st := statedb.StorageTrie(contractAddress)
 	if st == nil {
-		return StorageRangeResult{}, fmt.Errorf("account %x doesn't exist", contractAddress)
+		return StorageRangeResult{}, fmt.Errorf("[ETH] account %x doesn't exist", contractAddress)
 	}
 	return storageRangeAt(st, keyStart, maxResult)
 }
@@ -463,19 +463,19 @@ func (api *PrivateDebugAPI) GetModifiedAccountsByNumber(startNum uint64, endNum 
 
 	startBlock = api.eth.blockchain.GetBlockByNumber(startNum)
 	if startBlock == nil {
-		return nil, fmt.Errorf("start block %x not found", startNum)
+		return nil, fmt.Errorf("[ETH] start block %x not found", startNum)
 	}
 
 	if endNum == nil {
 		endBlock = startBlock
 		startBlock = api.eth.blockchain.GetBlockByHash(startBlock.ParentHash())
 		if startBlock == nil {
-			return nil, fmt.Errorf("block %x has no parent", endBlock.Number())
+			return nil, fmt.Errorf("[ETH] block %x has no parent", endBlock.Number())
 		}
 	} else {
 		endBlock = api.eth.blockchain.GetBlockByNumber(*endNum)
 		if endBlock == nil {
-			return nil, fmt.Errorf("end block %d not found", *endNum)
+			return nil, fmt.Errorf("[ETH] end block %d not found", *endNum)
 		}
 	}
 	return api.getModifiedAccounts(startBlock, endBlock)
@@ -490,19 +490,19 @@ func (api *PrivateDebugAPI) GetModifiedAccountsByHash(startHash common.Hash, end
 	var startBlock, endBlock *types.Block
 	startBlock = api.eth.blockchain.GetBlockByHash(startHash)
 	if startBlock == nil {
-		return nil, fmt.Errorf("start block %x not found", startHash)
+		return nil, fmt.Errorf("[ETH] start block %x not found", startHash)
 	}
 
 	if endHash == nil {
 		endBlock = startBlock
 		startBlock = api.eth.blockchain.GetBlockByHash(startBlock.ParentHash())
 		if startBlock == nil {
-			return nil, fmt.Errorf("block %x has no parent", endBlock.Number())
+			return nil, fmt.Errorf("[ETH] block %x has no parent", endBlock.Number())
 		}
 	} else {
 		endBlock = api.eth.blockchain.GetBlockByHash(*endHash)
 		if endBlock == nil {
-			return nil, fmt.Errorf("end block %x not found", *endHash)
+			return nil, fmt.Errorf("[ETH] end block %x not found", *endHash)
 		}
 	}
 	return api.getModifiedAccounts(startBlock, endBlock)
@@ -510,7 +510,7 @@ func (api *PrivateDebugAPI) GetModifiedAccountsByHash(startHash common.Hash, end
 
 func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Block) ([]common.Address, error) {
 	if startBlock.Number().Uint64() >= endBlock.Number().Uint64() {
-		return nil, fmt.Errorf("start block height (%d) must be less than end block height (%d)", startBlock.Number().Uint64(), endBlock.Number().Uint64())
+		return nil, fmt.Errorf("[ETH] start block height (%d) must be less than end block height (%d)", startBlock.Number().Uint64(), endBlock.Number().Uint64())
 	}
 	triedb := api.eth.BlockChain().StateCache().TrieDB()
 
@@ -529,7 +529,7 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 	for iter.Next() {
 		key := newTrie.GetKey(iter.Key)
 		if key == nil {
-			return nil, fmt.Errorf("no preimage found for hash %x", iter.Key)
+			return nil, fmt.Errorf("[ETH] no preimage found for hash %x", iter.Key)
 		}
 		dirty = append(dirty, common.BytesToAddress(key))
 	}

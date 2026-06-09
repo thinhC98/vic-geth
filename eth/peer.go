@@ -134,19 +134,19 @@ func (p *peer) broadcastBlocks(removePeer func(string)) {
 		select {
 		case prop := <-p.queuedBlocks:
 			if err := p.SendNewBlock(prop.block, prop.td); err != nil {
-				p.Log().Warn("[Peer] broadcastBlocks SendNewBlock failed, removing peer", "number", prop.block.NumberU64(), "err", err)
+				p.Log().Warn("[ETH] [Peer] broadcastBlocks SendNewBlock failed, removing peer", "number", prop.block.NumberU64(), "err", err)
 				removePeer(p.id)
 				return
 			}
-			p.Log().Trace("Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td)
+			p.Log().Trace("[ETH] Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td)
 
 		case block := <-p.queuedBlockAnns:
 			if err := p.SendNewBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
-				p.Log().Warn("[Peer] broadcastBlocks SendNewBlockHashes failed, removing peer", "number", block.NumberU64(), "err", err)
+				p.Log().Warn("[ETH] [Peer] broadcastBlocks SendNewBlockHashes failed, removing peer", "number", block.NumberU64(), "err", err)
 				removePeer(p.id)
 				return
 			}
-			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
+			p.Log().Trace("[ETH] Announced block", "number", block.Number(), "hash", block.Hash())
 
 		case <-p.term:
 			return
@@ -190,7 +190,7 @@ func (p *peer) broadcastTransactions(removePeer func(string)) {
 						return
 					}
 					close(done)
-					p.Log().Trace("Sent transactions", "count", len(txs))
+					p.Log().Trace("[ETH] Sent transactions", "count", len(txs))
 				}()
 			}
 		}
@@ -208,7 +208,7 @@ func (p *peer) broadcastTransactions(removePeer func(string)) {
 			done = nil
 
 		case err := <-fail:
-			p.Log().Warn("[Peer] broadcastTransactions send failed, removing peer", "err", err)
+			p.Log().Warn("[ETH] [Peer] broadcastTransactions send failed, removing peer", "err", err)
 			removePeer(p.id)
 			return
 
@@ -254,7 +254,7 @@ func (p *peer) announceTransactions(removePeer func(string)) {
 						return
 					}
 					close(done)
-					p.Log().Trace("Sent transaction announcements", "count", len(pending))
+					p.Log().Trace("[ETH] Sent transaction announcements", "count", len(pending))
 				}()
 			}
 		}
@@ -376,7 +376,7 @@ func (p *peer) AsyncSendTransactions(hashes []common.Hash) {
 			p.knownTxs.Add(hash)
 		}
 	case <-p.term:
-		p.Log().Debug("Dropping transaction propagation", "count", len(hashes))
+		p.Log().Debug("[ETH] Dropping transaction propagation", "count", len(hashes))
 	}
 }
 
@@ -411,7 +411,7 @@ func (p *peer) AsyncSendPooledTransactionHashes(hashes []common.Hash) {
 			p.knownTxs.Add(hash)
 		}
 	case <-p.term:
-		p.Log().Debug("Dropping transaction announcement", "count", len(hashes))
+		p.Log().Debug("[ETH] Dropping transaction announcement", "count", len(hashes))
 	}
 }
 
@@ -461,7 +461,7 @@ func (p *peer) AsyncSendNewBlockHash(block *types.Block) {
 		}
 		p.knownBlocks.Add(block.Hash())
 	default:
-		p.Log().Debug("Dropping block announcement", "number", block.NumberU64(), "hash", block.Hash())
+		p.Log().Debug("[ETH] Dropping block announcement", "number", block.NumberU64(), "hash", block.Hash())
 	}
 }
 
@@ -488,7 +488,7 @@ func (p *peer) AsyncSendNewBlock(block *types.Block, td *big.Int) {
 		}
 		p.knownBlocks.Add(block.Hash())
 	default:
-		p.Log().Debug("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash())
+		p.Log().Debug("[ETH] Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash())
 	}
 }
 
@@ -528,47 +528,47 @@ func (p *peer) SendReceiptsRLP(receipts []rlp.RawValue) error {
 // RequestOneHeader is a wrapper around the header query functions to fetch a
 // single header. It is used solely by the fetcher.
 func (p *peer) RequestOneHeader(hash common.Hash) error {
-	p.Log().Debug("Fetching single header", "hash", hash)
+	p.Log().Debug("[ETH] Fetching single header", "hash", hash)
 	return p2p.Send(p.rw, GetBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
 // RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
 // specified header query, based on the hash of an origin block.
 func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+	p.Log().Debug("[ETH] Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 	return p2p.Send(p.rw, GetBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 }
 
 // RequestHeadersByNumber fetches a batch of blocks' headers corresponding to the
 // specified header query, based on the number of an origin block.
 func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
+	p.Log().Debug("[ETH] Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
 	return p2p.Send(p.rw, GetBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 }
 
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
 func (p *peer) RequestBodies(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
+	p.Log().Debug("[ETH] Fetching batch of block bodies", "count", len(hashes))
 	return p2p.Send(p.rw, GetBlockBodiesMsg, hashes)
 }
 
 // RequestNodeData fetches a batch of arbitrary data from a node's known state
 // data, corresponding to the specified hashes.
 func (p *peer) RequestNodeData(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of state data", "count", len(hashes))
+	p.Log().Debug("[ETH] Fetching batch of state data", "count", len(hashes))
 	return p2p.Send(p.rw, GetNodeDataMsg, hashes)
 }
 
 // RequestReceipts fetches a batch of transaction receipts from a remote node.
 func (p *peer) RequestReceipts(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of receipts", "count", len(hashes))
+	p.Log().Debug("[ETH] Fetching batch of receipts", "count", len(hashes))
 	return p2p.Send(p.rw, GetReceiptsMsg, hashes)
 }
 
 // RequestTxs fetches a batch of transactions from a remote node.
 func (p *peer) RequestTxs(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of transactions", "count", len(hashes))
+	p.Log().Debug("[ETH] Fetching batch of transactions", "count", len(hashes))
 	return p2p.Send(p.rw, GetPooledTransactionsMsg, hashes)
 }
 
@@ -602,7 +602,7 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 				ForkID:          forkID,
 			})
 		default:
-			panic(fmt.Sprintf("unsupported eth protocol version: %d", p.version))
+			panic(fmt.Sprintf("[ETH] Unsupported eth protocol version: %d", p.version))
 		}
 	}()
 	go func() {
@@ -612,7 +612,7 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 		case p.version >= eth64:
 			errc <- p.readStatus(network, &status, genesis, forkFilter)
 		default:
-			panic(fmt.Sprintf("unsupported eth protocol version: %d", p.version))
+			panic(fmt.Sprintf("[ETH] Unsupported eth protocol version: %d", p.version))
 		}
 	}()
 	timeout := time.NewTimer(handshakeTimeout)
@@ -633,7 +633,7 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 	case p.version >= eth64:
 		p.td, p.head = status.TD, status.Head
 	default:
-		panic(fmt.Sprintf("unsupported eth protocol version: %d", p.version))
+		panic(fmt.Sprintf("[ETH] Unsupported eth protocol version: %d", p.version))
 	}
 	return nil
 }

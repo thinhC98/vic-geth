@@ -128,12 +128,12 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		fullBlock, fastBlock := blockchain.CurrentBlock(), blockchain.CurrentFastBlock()
 		if fullBlock.NumberU64() == 0 && fastBlock.NumberU64() > 0 {
 			manager.fastSync = uint32(1)
-			log.Warn("Switch sync mode from full sync to fast sync")
+			log.Warn("[ETH] Switch sync mode from full sync to fast sync")
 		}
 	} else {
 		if blockchain.CurrentBlock().NumberU64() > 0 {
 			// Print warning log if database is not empty to run fast sync.
-			log.Warn("Switch sync mode from fast sync to full sync")
+			log.Warn("[ETH] Switch sync mode from fast sync to full sync")
 		} else {
 			// If fast sync was requested and our database is empty, grant it
 			manager.fastSync = uint32(1)
@@ -170,7 +170,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		// case when starting new networks, where the genesis might be ancient (0 unix)
 		// which would prevent full nodes from accepting it.
 		if manager.blockchain.CurrentBlock().NumberU64() < manager.checkpointNumber {
-			log.Warn("Unsynced yet, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
+			log.Warn("[ETH] Unsynced yet, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
 		// If fast sync is running, deny importing weird blocks. This is a problematic
@@ -179,7 +179,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 		// out a way yet where nodes can decide unilaterally whether the network is new
 		// or not. This should be fixed if we figure out a solution.
 		if atomic.LoadUint32(&manager.fastSync) == 1 {
-			log.Warn("Fast syncing, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
+			log.Warn("[ETH] Fast syncing, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
 		n, err := manager.blockchain.InsertChain(blocks)
@@ -193,7 +193,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 	fetchTx := func(peer string, hashes []common.Hash) error {
 		p := manager.peers.Peer(peer)
 		if p == nil {
-			return errors.New("unknown peer")
+			return errors.New("[ETH] unknown peer")
 		}
 		return p.RequestTxs(hashes)
 	}
@@ -207,7 +207,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 func (pm *ProtocolManager) makeProtocol(version uint) p2p.Protocol {
 	length, ok := protocolLengths[version]
 	if !ok {
-		panic("makeProtocol for unknown version")
+		panic("[ETH] makeProtocol for unknown version")
 	}
 
 	return p2p.Protocol{
@@ -236,14 +236,14 @@ func (pm *ProtocolManager) removePeer(id string) {
 		return
 	}
 	// Log the caller to help diagnose unexpected disconnections.
-	log.Info("[Handler] removePeer called", "peer", id, "caller", "removePeer")
+	log.Info("[ETH] [Handler] removePeer called", "peer", id, "caller", "removePeer")
 
 	// Unregister the peer from the downloader and Ethereum peer set
 	pm.downloader.UnregisterPeer(id)
 	pm.txFetcher.Drop(id)
 
 	if err := pm.peers.Unregister(id); err != nil {
-		log.Error("Peer removal failed", "peer", id, "err", err)
+		log.Error("[ETH] Peer removal failed", "peer", id, "err", err)
 	}
 	// Hard disconnect at the networking layer
 	if peer != nil {
@@ -287,7 +287,7 @@ func (pm *ProtocolManager) Stop() {
 	pm.peers.Close()
 	pm.peerWG.Wait()
 
-	log.Info("Ethereum protocol stopped")
+	log.Info("[ETH] Ethereum protocol stopped")
 }
 
 func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter, getPooledTx func(hash common.Hash) *types.Transaction) *peer {
@@ -310,7 +310,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if pm.peers.Len() >= pm.maxPeers && !p.Peer.Info().Network.Trusted {
 		return p2p.DiscTooManyPeers
 	}
-	p.Log().Debug("Ethereum peer connected", "name", p.Name())
+	p.Log().Debug("[ETH] Ethereum peer connected", "name", p.Name())
 
 	// Execute the Ethereum handshake
 	var (
@@ -322,13 +322,13 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	)
 	forkID := forkid.NewID(pm.blockchain.Config(), pm.blockchain.Genesis().Hash(), pm.blockchain.CurrentHeader().Number.Uint64())
 	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), forkID, pm.forkFilter); err != nil {
-		p.Log().Debug("Ethereum handshake failed", "err", err)
+		p.Log().Debug("[ETH] Ethereum handshake failed", "err", err)
 		return err
 	}
 
 	// Register the peer locally
 	if err := pm.peers.Register(p, pm.removePeer); err != nil {
-		p.Log().Error("Ethereum peer registration failed", "err", err)
+		p.Log().Error("[ETH] Ethereum peer registration failed", "err", err)
 		return err
 	}
 	defer pm.removePeer(p.id)
@@ -351,7 +351,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		}
 		// Start a timer to disconnect if the peer doesn't reply in time
 		p.syncDrop = time.AfterFunc(syncChallengeTimeout, func() {
-			p.Log().Warn("Checkpoint challenge timed out, dropping", "addr", p.RemoteAddr(), "type", p.Name())
+			p.Log().Warn("[ETH] Checkpoint challenge timed out, dropping", "addr", p.RemoteAddr(), "type", p.Name())
 			pm.removePeer(p.id)
 		})
 		// Make sure it's cleaned up if the peer dies off
@@ -371,7 +371,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// Handle incoming messages until the connection is torn down
 	for {
 		if err := pm.handleMsg(p); err != nil {
-			p.Log().Debug("Ethereum message handling failed", "err", err)
+			p.Log().Debug("[ETH] Ethereum message handling failed", "err", err)
 			return err
 		}
 	}
@@ -391,7 +391,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	defer msg.Discard()
 
 	// Handle the message depending on its contents
-	log.Debug("Received eth message", "code", msg.Code, "size", msg.Size, "peer", p.id)
+	log.Debug("[ETH] Received eth message", "code", msg.Code, "size", msg.Size, "peer", p.id)
 	switch {
 	case msg.Code == StatusMsg:
 		// Status messages should never arrive after the handshake
@@ -455,7 +455,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				)
 				if next <= current {
 					infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")
-					p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
+					p.Log().Warn("[ETH] GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
 					unknown = true
 				} else {
 					if header := pm.blockchain.GetHeaderByNumber(next); header != nil {
@@ -483,7 +483,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug("Sending block headers to peer", "count", len(headers), "peer", p.id)
+		log.Debug("[ETH] Sending block headers to peer", "count", len(headers), "peer", p.id)
 		return p.SendBlockHeaders(headers)
 
 	case msg.Code == BlockHeadersMsg:
@@ -502,8 +502,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// eclipse attacks. Unsynced nodes are welcome to connect after we're done
 			// joining the network
 			if atomic.LoadUint32(&pm.fastSync) == 1 {
-				p.Log().Warn("Dropping unsynced node during fast sync", "addr", p.RemoteAddr(), "type", p.Name())
-				return errors.New("unsynced node cannot serve fast sync")
+				p.Log().Warn("[ETH] Dropping unsynced node during fast sync", "addr", p.RemoteAddr(), "type", p.Name())
+				return errors.New("[ETH] unsynced node cannot serve fast sync")
 			}
 		}
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
@@ -517,17 +517,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 				// Validate the header and either drop the peer or continue
 				if headers[0].Hash() != pm.checkpointHash {
-					return errors.New("checkpoint hash mismatch")
+					return errors.New("[ETH] checkpoint hash mismatch")
 				}
 				return nil
 			}
 			// Otherwise if it's a whitelisted block, validate against the set
 			if want, ok := pm.whitelist[headers[0].Number.Uint64()]; ok {
 				if hash := headers[0].Hash(); want != hash {
-					p.Log().Info("Whitelist mismatch, dropping peer", "number", headers[0].Number.Uint64(), "hash", hash, "want", want)
-					return errors.New("whitelist block mismatch")
+					p.Log().Info("[ETH] Whitelist mismatch, dropping peer", "number", headers[0].Number.Uint64(), "hash", hash, "want", want)
+					return errors.New("[ETH] whitelist block mismatch")
 				}
-				p.Log().Debug("Whitelist block verified", "number", headers[0].Number.Uint64(), "hash", want)
+				p.Log().Debug("[ETH] Whitelist block verified", "number", headers[0].Number.Uint64(), "hash", want)
 			}
 			// Irrelevant of the fork checks, send the header to the fetcher just in case
 			headers = pm.blockFetcher.FilterHeaders(p.id, headers, time.Now())
@@ -535,7 +535,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if len(headers) > 0 || !filter {
 			err := pm.downloader.DeliverHeaders(p.id, headers)
 			if err != nil {
-				log.Debug("Failed to deliver headers", "err", err)
+				log.Debug("[ETH] Failed to deliver headers", "err", err)
 			}
 		}
 
@@ -564,7 +564,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(data)
 			}
 		}
-		log.Debug("Sending block bodies to peer", "count", len(bodies), "peer", p.id)
+		log.Debug("[ETH] Sending block bodies to peer", "count", len(bodies), "peer", p.id)
 		return p.SendBlockBodiesRLP(bodies)
 
 	case msg.Code == BlockBodiesMsg:
@@ -589,7 +589,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if len(transactions) > 0 || len(uncles) > 0 || !filter {
 			err := pm.downloader.DeliverBodies(p.id, transactions, uncles)
 			if err != nil {
-				log.Debug("Failed to deliver bodies", "err", err)
+				log.Debug("[ETH] Failed to deliver bodies", "err", err)
 			}
 		}
 
@@ -639,7 +639,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Deliver all to the downloader
 		if err := pm.downloader.DeliverNodeData(p.id, data); err != nil {
-			log.Debug("Failed to deliver node state data", "err", err)
+			log.Debug("[ETH] Failed to deliver node state data", "err", err)
 		}
 
 	case p.version >= eth63 && msg.Code == GetReceiptsMsg:
@@ -670,7 +670,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			// If known, encode and queue for response packet
 			if encoded, err := rlp.EncodeToBytes(results); err != nil {
-				log.Error("Failed to encode receipt", "err", err)
+				log.Error("[ETH] Failed to encode receipt", "err", err)
 			} else {
 				receipts = append(receipts, encoded)
 				bytes += len(encoded)
@@ -686,7 +686,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Deliver all to the downloader
 		if err := pm.downloader.DeliverReceipts(p.id, receipts); err != nil {
-			log.Debug("Failed to deliver receipts", "err", err)
+			log.Debug("[ETH] Failed to deliver receipts", "err", err)
 		}
 
 	case msg.Code == NewBlockHashesMsg:
@@ -716,11 +716,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
 		if hash := types.CalcUncleHash(request.Block.Uncles()); hash != request.Block.UncleHash() {
-			log.Warn("Propagated block has invalid uncles", "have", hash, "exp", request.Block.UncleHash())
+			log.Warn("[ETH] Propagated block has invalid uncles", "have", hash, "exp", request.Block.UncleHash())
 			break // TODO(karalabe): return error eventually, but wait a few releases
 		}
 		if hash := types.DeriveSha(request.Block.Transactions(), trie.NewStackTrie(nil)); hash != request.Block.TxHash() {
-			log.Warn("Propagated block has invalid body", "have", hash, "exp", request.Block.TxHash())
+			log.Warn("[ETH] Propagated block has invalid body", "have", hash, "exp", request.Block.TxHash())
 			break // TODO(karalabe): return error eventually, but wait a few releases
 		}
 		if err := request.sanityCheck(); err != nil {
@@ -788,7 +788,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			// If known, encode and queue for response packet
 			if encoded, err := rlp.EncodeToBytes(tx); err != nil {
-				log.Error("Failed to encode transaction", "err", err)
+				log.Error("[ETH] Failed to encode transaction", "err", err)
 			} else {
 				hashes = append(hashes, hash)
 				txs = append(txs, encoded)
@@ -823,10 +823,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// We must consume the message body to avoid leaving stale data on the stream.
 		var ignored []rlp.RawValue
 		msg.Decode(&ignored)
-		log.Trace("[Handler] Discarded victionchain order/lending tx", "code", msg.Code, "peer", p.id, "count", len(ignored))
+		log.Trace("[ETH] [Handler] Discarded victionchain order/lending tx", "code", msg.Code, "peer", p.id, "count", len(ignored))
 
 	default:
-		log.Warn("Received unknown message code from peer", "code", msg.Code, "peer", p.id, "version", p.version)
+		log.Warn("[ETH] Received unknown message code from peer", "code", msg.Code, "peer", p.id, "version", p.version)
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
 	return nil
@@ -845,7 +845,7 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 		if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
 			td = new(big.Int).Add(block.Difficulty(), pm.blockchain.GetTd(block.ParentHash(), block.NumberU64()-1))
 		} else {
-			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
+			log.Error("[ETH] Propagating dangling block", "number", block.Number(), "hash", hash)
 			return
 		}
 		// Send the block to a subset of our peers
@@ -853,7 +853,7 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 		for _, peer := range transfer {
 			peer.AsyncSendNewBlock(block, td)
 		}
-		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Trace("[ETH] Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
@@ -861,7 +861,7 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 		for _, peer := range peers {
 			peer.AsyncSendNewBlockHash(block)
 		}
-		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Trace("[ETH] Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 
@@ -882,7 +882,7 @@ func (pm *ProtocolManager) BroadcastTransactions(txs types.Transactions, propaga
 			for _, peer := range transfer {
 				txset[peer] = append(txset[peer], tx.Hash())
 			}
-			log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
+			log.Trace("[ETH] Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
 		}
 		for peer, hashes := range txset {
 			peer.AsyncSendTransactions(hashes)
