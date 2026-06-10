@@ -66,7 +66,7 @@ func (V4ID) Verify(r *enr.Record, sig []byte) error {
 	if err := r.Load(&entry); err != nil {
 		return err
 	} else if len(entry) != 33 {
-		return fmt.Errorf("invalid public key")
+		return fmt.Errorf("[ENODE] invalid public key")
 	}
 
 	h := sha3.NewLegacyKeccak256()

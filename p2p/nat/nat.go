@@ -68,7 +68,7 @@ func Parse(spec string) (Interface, error) {
 	if len(parts) > 1 {
 		ip = net.ParseIP(parts[1])
 		if ip == nil {
-			return nil, errors.New("invalid IP address")
+			return nil, errors.New("[NAT] invalid IP address")
 		}
 	}
 	switch mech {
@@ -78,7 +78,7 @@ func Parse(spec string) (Interface, error) {
 		return Any(), nil
 	case "extip", "ip":
 		if ip == nil {
-			return nil, errors.New("missing IP address")
+			return nil, errors.New("[NAT] missing IP address")
 		}
 		return ExtIP(ip), nil
 	case "upnp":
@@ -86,7 +86,7 @@ func Parse(spec string) (Interface, error) {
 	case "pmp", "natpmp", "nat-pmp":
 		return PMP(ip), nil
 	default:
-		return nil, fmt.Errorf("unknown mechanism %q", parts[0])
+		return nil, fmt.Errorf("[NAT] unknown mechanism %q", parts[0])
 	}
 }
 
@@ -101,13 +101,13 @@ func Map(m Interface, c <-chan struct{}, protocol string, extport, intport int, 
 	refresh := time.NewTimer(mapTimeout)
 	defer func() {
 		refresh.Stop()
-		log.Debug("Deleting port mapping")
+		log.Debug("[NAT] Deleting port mapping")
 		m.DeleteMapping(protocol, extport, intport)
 	}()
 	if err := m.AddMapping(protocol, extport, intport, name, mapTimeout); err != nil {
-		log.Debug("Couldn't add port mapping", "err", err)
+		log.Debug("[NAT] Couldn't add port mapping", "err", err)
 	} else {
-		log.Info("Mapped network port")
+		log.Info("[NAT] Mapped network port")
 	}
 	for {
 		select {
@@ -116,9 +116,9 @@ func Map(m Interface, c <-chan struct{}, protocol string, extport, intport int, 
 				return
 			}
 		case <-refresh.C:
-			log.Trace("Refreshing port mapping")
+			log.Trace("[NAT] Refreshing port mapping")
 			if err := m.AddMapping(protocol, extport, intport, name, mapTimeout); err != nil {
-				log.Debug("Couldn't add port mapping", "err", err)
+				log.Debug("[NAT] Couldn't add port mapping", "err", err)
 			}
 			refresh.Reset(mapTimeout)
 		}

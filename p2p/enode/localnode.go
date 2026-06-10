@@ -274,14 +274,14 @@ func (ln *LocalNode) sign() {
 	ln.bumpSeq()
 	r.SetSeq(ln.seq)
 	if err := SignV4(&r, ln.key); err != nil {
-		panic(fmt.Errorf("enode: can't sign record: %v", err))
+		panic(fmt.Errorf("[ENODE] enode: can't sign record: %v", err))
 	}
 	n, err := New(ValidSchemes, &r)
 	if err != nil {
-		panic(fmt.Errorf("enode: can't verify local record: %v", err))
+		panic(fmt.Errorf("[ENODE] enode: can't verify local record: %v", err))
 	}
 	ln.cur.Store(n)
-	log.Info("New local node record", "seq", ln.seq, "id", n.ID(), "ip", n.IP(), "udp", n.UDP(), "tcp", n.TCP())
+	log.Info("[ENODE] New local node record", "seq", ln.seq, "id", n.ID(), "ip", n.IP(), "udp", n.UDP(), "tcp", n.TCP())
 }
 
 func (ln *LocalNode) bumpSeq() {

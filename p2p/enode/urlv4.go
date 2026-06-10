@@ -40,7 +40,7 @@ var (
 func MustParseV4(rawurl string) *Node {
 	n, err := ParseV4(rawurl)
 	if err != nil {
-		panic("invalid node URL: " + err.Error())
+		panic("[ENODE] invalid node URL: " + err.Error())
 	}
 	return n
 }
@@ -73,7 +73,7 @@ func ParseV4(rawurl string) (*Node, error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := parsePubkey(m[1])
 		if err != nil {
-			return nil, fmt.Errorf("invalid public key (%v)", err)
+			return nil, fmt.Errorf("[ENODE] invalid public key (%v)", err)
 		}
 		return NewV4(id, nil, 0, 0), nil
 	}
@@ -117,14 +117,14 @@ func parseComplete(rawurl string) (*Node, error) {
 		return nil, err
 	}
 	if u.Scheme != "enode" {
-		return nil, errors.New("invalid URL scheme, want \"enode\"")
+		return nil, errors.New("[ENODE] invalid URL scheme, want \"enode\"")
 	}
 	// Parse the Node ID from the user portion.
 	if u.User == nil {
-		return nil, errors.New("does not contain node ID")
+		return nil, errors.New("[ENODE] does not contain node ID")
 	}
 	if id, err = parsePubkey(u.User.String()); err != nil {
-		return nil, fmt.Errorf("invalid public key (%v)", err)
+		return nil, fmt.Errorf("[ENODE] invalid public key (%v)", err)
 	}
 	// Parse the IP address.
 	ip := net.ParseIP(u.Hostname())
@@ -141,14 +141,14 @@ func parseComplete(rawurl string) (*Node, error) {
 	}
 	// Parse the port numbers.
 	if tcpPort, err = strconv.ParseUint(u.Port(), 10, 16); err != nil {
-		return nil, errors.New("invalid port")
+		return nil, errors.New("[ENODE] invalid port")
 	}
 	udpPort = tcpPort
 	qv := u.Query()
 	if qv.Get("discport") != "" {
 		udpPort, err = strconv.ParseUint(qv.Get("discport"), 10, 16)
 		if err != nil {
-			return nil, errors.New("invalid discport in query")
+			return nil, errors.New("[ENODE] invalid discport in query")
 		}
 	}
 	return NewV4(id, ip, int(tcpPort), int(udpPort)), nil
@@ -160,7 +160,7 @@ func parsePubkey(in string) (*ecdsa.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	} else if len(b) != 64 {
-		return nil, fmt.Errorf("wrong length, want %d hex chars", 128)
+		return nil, fmt.Errorf("[ENODE] wrong length, want %d hex chars", 128)
 	}
 	b = append([]byte{0x4}, b...)
 	return crypto.UnmarshalPubkey(b)

@@ -128,7 +128,7 @@ func MakeTree(seq uint, nodes []*enode.Node, links []string) (*Tree, error) {
 	sortByID(records)
 	for _, n := range records {
 		if len(n.Record().Signature()) == 0 {
-			return nil, fmt.Errorf("can't add node %v: unsigned node record", n.ID())
+			return nil, fmt.Errorf("[DNSDISC] can't add node %v: unsigned node record", n.ID())
 		}
 	}
 
@@ -310,7 +310,7 @@ func parseLinkEntry(e string) (entry, error) {
 
 func parseLink(e string) (*linkEntry, error) {
 	if !strings.HasPrefix(e, linkPrefix) {
-		return nil, fmt.Errorf("wrong/missing scheme 'enrtree' in URL")
+		return nil, fmt.Errorf("[DNSDISC] wrong/missing scheme 'enrtree' in URL")
 	}
 	e = e[len(linkPrefix):]
 	pos := strings.IndexByte(e, '@')
@@ -375,7 +375,7 @@ func isValidHash(s string) bool {
 func truncateHash(hash string) string {
 	maxLen := b32format.EncodedLen(minHashLength)
 	if len(hash) < maxLen {
-		panic(fmt.Errorf("dnsdisc: hash %q is too short", hash))
+		panic(fmt.Errorf("[DNSDISC] dnsdisc: hash %q is too short", hash))
 	}
 	return hash[:maxLen]
 }

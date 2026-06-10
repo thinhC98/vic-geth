@@ -232,18 +232,18 @@ func (s *Setup) NewPersistentField(name string, ftype reflect.Type, encode func(
 func flagOp(a, b Flags, trueIfA, trueIfB, trueIfBoth bool) Flags {
 	if a.setup == nil {
 		if a.mask != 0 {
-			panic("Node state flags have no setup reference")
+			panic("[NODESTATE] Node state flags have no setup reference")
 		}
 		a.setup = b.setup
 	}
 	if b.setup == nil {
 		if b.mask != 0 {
-			panic("Node state flags have no setup reference")
+			panic("[NODESTATE] Node state flags have no setup reference")
 		}
 		b.setup = a.setup
 	}
 	if a.setup != b.setup {
-		panic("Node state flags belong to a different setup")
+		panic("[NODESTATE] Node state flags belong to a different setup")
 	}
 	res := Flags{setup: a.setup}
 	if trueIfA {
@@ -319,10 +319,10 @@ func (f Flags) String() string {
 // Persistence can be enabled or disabled for each state flag and field.
 func NewNodeStateMachine(db ethdb.KeyValueStore, dbKey []byte, clock mclock.Clock, setup *Setup) *NodeStateMachine {
 	if setup.flags == nil {
-		panic("No state flags defined")
+		panic("[NODESTATE] No state flags defined")
 	}
 	if len(setup.flags) > 8*int(unsafe.Sizeof(bitMask(0))) {
-		panic("Too many node state flags")
+		panic("[NODESTATE] Too many node state flags")
 	}
 	ns := &NodeStateMachine{
 		db:        db,
@@ -336,7 +336,7 @@ func NewNodeStateMachine(db ethdb.KeyValueStore, dbKey []byte, clock mclock.Cloc
 	stateNameMap := make(map[string]int)
 	for index, flag := range setup.flags {
 		if _, ok := stateNameMap[flag.name]; ok {
-			panic("Node state flag name collision: " + flag.name)
+			panic("[NODESTATE] Node state flag name collision: " + flag.name)
 		}
 		stateNameMap[flag.name] = index
 		if flag.persistent {
@@ -346,7 +346,7 @@ func NewNodeStateMachine(db ethdb.KeyValueStore, dbKey []byte, clock mclock.Cloc
 	fieldNameMap := make(map[string]int)
 	for index, field := range setup.fields {
 		if _, ok := fieldNameMap[field.name]; ok {
-			panic("Node field name collision: " + field.name)
+			panic("[NODESTATE] Node field name collision: " + field.name)
 		}
 		ns.fields[index] = &fieldInfo{fieldDefinition: field}
 		fieldNameMap[field.name] = index
@@ -357,7 +357,7 @@ func NewNodeStateMachine(db ethdb.KeyValueStore, dbKey []byte, clock mclock.Cloc
 // stateMask checks whether the set of flags belongs to the same setup and returns its internal bit mask
 func (ns *NodeStateMachine) stateMask(flags Flags) bitMask {
 	if flags.setup != ns.setup && flags.mask != 0 {
-		panic("Node state flags belong to a different setup")
+		panic("[NODESTATE] Node state flags belong to a different setup")
 	}
 	return flags.mask
 }
@@ -365,7 +365,7 @@ func (ns *NodeStateMachine) stateMask(flags Flags) bitMask {
 // fieldIndex checks whether the field belongs to the same setup and returns its internal index
 func (ns *NodeStateMachine) fieldIndex(field Field) int {
 	if field.setup != ns.setup {
-		panic("Node field belongs to a different setup")
+		panic("[NODESTATE] Node field belongs to a different setup")
 	}
 	return field.index
 }
@@ -384,7 +384,7 @@ func (ns *NodeStateMachine) SubscribeState(flags Flags, callback StateCallback) 
 	defer ns.lock.Unlock()
 
 	if ns.started {
-		panic("state machine already started")
+		panic("[NODESTATE] state machine already started")
 	}
 	ns.stateSubs = append(ns.stateSubs, stateSub{ns.stateMask(flags), callback})
 }
@@ -395,7 +395,7 @@ func (ns *NodeStateMachine) SubscribeField(field Field, callback FieldCallback) 
 	defer ns.lock.Unlock()
 
 	if ns.started {
-		panic("state machine already started")
+		panic("[NODESTATE] state machine already started")
 	}
 	f := ns.fields[ns.fieldIndex(field)]
 	f.subs = append(f.subs, callback)
@@ -409,7 +409,7 @@ func (ns *NodeStateMachine) newNode(n *enode.Node) *nodeInfo {
 // checkStarted checks whether the state machine has already been started and panics otherwise.
 func (ns *NodeStateMachine) checkStarted() {
 	if !ns.started {
-		panic("state machine not started yet")
+		panic("[NODESTATE] state machine not started yet")
 	}
 }
 
@@ -418,7 +418,7 @@ func (ns *NodeStateMachine) checkStarted() {
 func (ns *NodeStateMachine) Start() {
 	ns.lock.Lock()
 	if ns.started {
-		panic("state machine already started")
+		panic("[NODESTATE] state machine already started")
 	}
 	ns.started = true
 	if ns.db != nil {
@@ -438,7 +438,7 @@ func (ns *NodeStateMachine) Stop() {
 
 	ns.checkStarted()
 	if !ns.opStart() {
-		panic("already closed")
+		panic("[NODESTATE] already closed")
 	}
 	for _, node := range ns.nodes {
 		fields := make([]interface{}, len(node.fields))
@@ -459,7 +459,7 @@ func (ns *NodeStateMachine) loadFromDb() {
 	for it.Next() {
 		var id enode.ID
 		if len(it.Key()) != len(ns.dbNodeKey)+len(id) {
-			log.Error("Node state db entry with invalid length", "found", len(it.Key()), "expected", len(ns.dbNodeKey)+len(id))
+			log.Error("[NODESTATE] Node state db entry with invalid length", "found", len(it.Key()), "expected", len(ns.dbNodeKey)+len(id))
 			continue
 		}
 		copy(id[:], it.Key()[len(ns.dbNodeKey):])
@@ -476,7 +476,7 @@ func (id dummyIdentity) NodeAddr(r *enr.Record) []byte          { return id[:] }
 func (ns *NodeStateMachine) decodeNode(id enode.ID, data []byte) {
 	var enc nodeInfoEnc
 	if err := rlp.DecodeBytes(data, &enc); err != nil {
-		log.Error("Failed to decode node info", "id", id, "error", err)
+		log.Error("[NODESTATE] Failed to decode node info", "id", id, "error", err)
 		return
 	}
 	n, _ := enode.New(dummyIdentity(id), &enc.Enr)
@@ -484,12 +484,12 @@ func (ns *NodeStateMachine) decodeNode(id enode.ID, data []byte) {
 	node.db = true
 
 	if enc.Version != ns.setup.Version {
-		log.Debug("Removing stored node with unknown version", "current", ns.setup.Version, "stored", enc.Version)
+		log.Debug("[NODESTATE] Removing stored node with unknown version", "current", ns.setup.Version, "stored", enc.Version)
 		ns.deleteNode(id)
 		return
 	}
 	if len(enc.Fields) > len(ns.setup.fields) {
-		log.Error("Invalid node field count", "id", id, "stored", len(enc.Fields))
+		log.Error("[NODESTATE] Invalid node field count", "id", id, "stored", len(enc.Fields))
 		return
 	}
 	// Resolve persisted node fields
@@ -502,11 +502,11 @@ func (ns *NodeStateMachine) decodeNode(id enode.ID, data []byte) {
 				node.fields[i] = field
 				node.fieldCount++
 			} else {
-				log.Error("Failed to decode node field", "id", id, "field name", ns.fields[i].name, "error", err)
+				log.Error("[NODESTATE] Failed to decode node field", "id", id, "field name", ns.fields[i].name, "error", err)
 				return
 			}
 		} else {
-			log.Error("Cannot decode node field", "id", id, "field name", ns.fields[i].name)
+			log.Error("[NODESTATE] Cannot decode node field", "id", id, "field name", ns.fields[i].name)
 			return
 		}
 	}
@@ -516,7 +516,7 @@ func (ns *NodeStateMachine) decodeNode(id enode.ID, data []byte) {
 	fields := make([]interface{}, len(node.fields))
 	copy(fields, node.fields)
 	ns.offlineCallbackList = append(ns.offlineCallbackList, offlineCallback{node, node.state, fields})
-	log.Debug("Loaded node state", "id", id, "state", Flags{mask: enc.State, setup: ns.setup})
+	log.Debug("[NODESTATE] Loaded node state", "id", id, "state", Flags{mask: enc.State, setup: ns.setup})
 }
 
 // saveNode saves the given node info to the database
@@ -535,7 +535,7 @@ func (ns *NodeStateMachine) saveNode(id enode.ID, node *nodeInfo) error {
 		State:   storedState,
 		Fields:  make([][]byte, len(ns.fields)),
 	}
-	log.Debug("Saved node state", "id", id, "state", Flags{mask: enc.State, setup: ns.setup})
+	log.Debug("[NODESTATE] Saved node state", "id", id, "state", Flags{mask: enc.State, setup: ns.setup})
 	lastIndex := -1
 	for i, f := range node.fields {
 		if f == nil {
@@ -587,7 +587,7 @@ func (ns *NodeStateMachine) saveToDb() {
 		if node.dirty {
 			err := ns.saveNode(id, node)
 			if err != nil {
-				log.Error("Failed to save node", "id", id, "error", err)
+				log.Error("[NODESTATE] Failed to save node", "id", id, "error", err)
 			}
 		}
 	}
@@ -612,7 +612,7 @@ func (ns *NodeStateMachine) Persist(n *enode.Node) error {
 	if id, node := ns.updateEnode(n); node != nil && node.dirty {
 		err := ns.saveNode(id, node)
 		if err != nil {
-			log.Error("Failed to save node", "id", id, "error", err)
+			log.Error("[NODESTATE] Failed to save node", "id", id, "error", err)
 		}
 		return err
 	}
@@ -693,7 +693,7 @@ func (ns *NodeStateMachine) setState(n *enode.Node, setFlags, resetFlags Flags, 
 // opCheck checks whether an operation is active
 func (ns *NodeStateMachine) opCheck() {
 	if !ns.opFlag {
-		panic("Operation has not started")
+		panic("[NODESTATE] Operation has not started")
 	}
 }
 
@@ -893,7 +893,7 @@ func (ns *NodeStateMachine) setField(n *enode.Node, field Field, value interface
 	fieldIndex := ns.fieldIndex(field)
 	f := ns.fields[fieldIndex]
 	if value != nil && reflect.TypeOf(value) != f.ftype {
-		log.Error("Invalid field type", "type", reflect.TypeOf(value), "required", f.ftype)
+		log.Error("[NODESTATE] Invalid field type", "type", reflect.TypeOf(value), "required", f.ftype)
 		return ErrInvalidField
 	}
 	oldValue := node.fields[fieldIndex]
@@ -977,7 +977,7 @@ func (ns *NodeStateMachine) AddLogMetrics(requireFlags, disableFlags Flags, name
 		if newMatch {
 			count++
 			if name != "" {
-				log.Debug("Node entered", "set", name, "id", n.ID(), "count", count)
+				log.Debug("[NODESTATE] Node entered", "set", name, "id", n.ID(), "count", count)
 			}
 			if inMeter != nil {
 				inMeter.Mark(1)
@@ -985,7 +985,7 @@ func (ns *NodeStateMachine) AddLogMetrics(requireFlags, disableFlags Flags, name
 		} else {
 			count--
 			if name != "" {
-				log.Debug("Node left", "set", name, "id", n.ID(), "count", count)
+				log.Debug("[NODESTATE] Node left", "set", name, "id", n.ID(), "count", count)
 			}
 			if outMeter != nil {
 				outMeter.Mark(1)

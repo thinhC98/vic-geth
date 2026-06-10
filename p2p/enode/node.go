@@ -46,7 +46,7 @@ func New(validSchemes enr.IdentityScheme, r *enr.Record) (*Node, error) {
 	}
 	node := &Node{r: *r}
 	if n := copy(node.id[:], validSchemes.NodeAddr(&node.r)); n != len(ID{}) {
-		return nil, fmt.Errorf("invalid node ID length %d, need %d", n, len(ID{}))
+		return nil, fmt.Errorf("[ENODE] invalid node ID length %d, need %d", n, len(ID{}))
 	}
 	return node, nil
 }
@@ -55,7 +55,7 @@ func New(validSchemes enr.IdentityScheme, r *enr.Record) (*Node, error) {
 func MustParse(rawurl string) *Node {
 	n, err := Parse(ValidSchemes, rawurl)
 	if err != nil {
-		panic("invalid node: " + err.Error())
+		panic("[ENODE] invalid node: " + err.Error())
 	}
 	return n
 }
@@ -148,14 +148,14 @@ func (n *Node) Record() *enr.Record {
 // Deprecated: don't use this method.
 func (n *Node) ValidateComplete() error {
 	if n.Incomplete() {
-		return errors.New("missing IP address")
+		return errors.New("[ENODE] missing IP address")
 	}
 	if n.UDP() == 0 {
-		return errors.New("missing UDP port")
+		return errors.New("[ENODE] missing UDP port")
 	}
 	ip := n.IP()
 	if ip.IsMulticast() || ip.IsUnspecified() {
-		return errors.New("invalid IP (multicast/unspecified)")
+		return errors.New("[ENODE] invalid IP (multicast/unspecified)")
 	}
 	// Validate the node key (on curve, etc.).
 	var key Secp256k1
@@ -241,7 +241,7 @@ func ParseID(in string) (ID, error) {
 	if err != nil {
 		return id, err
 	} else if len(b) != len(id) {
-		return id, fmt.Errorf("wrong length, want %d hex chars", len(id)*2)
+		return id, fmt.Errorf("[ENODE] wrong length, want %d hex chars", len(id)*2)
 	}
 	copy(id[:], b)
 	return id, nil

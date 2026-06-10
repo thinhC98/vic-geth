@@ -105,7 +105,7 @@ func NewClient(cfg Config) *Client {
 func (c *Client) SyncTree(url string) (*Tree, error) {
 	le, err := parseLink(url)
 	if err != nil {
-		return nil, fmt.Errorf("invalid enrtree URL: %v", err)
+		return nil, fmt.Errorf("[DNSDISC] invalid enrtree URL: %v", err)
 	}
 	ct := newClientTree(c, new(linkCache), le)
 	t := &Tree{entries: make(map[string]entry)}
@@ -131,7 +131,7 @@ func (c *Client) NewIterator(urls ...string) (enode.Iterator, error) {
 // resolveRoot retrieves a root entry via DNS.
 func (c *Client) resolveRoot(ctx context.Context, loc *linkEntry) (rootEntry, error) {
 	txts, err := c.cfg.Resolver.LookupTXT(ctx, loc.domain)
-	c.cfg.Logger.Trace("Updating DNS discovery root", "tree", loc.domain, "err", err)
+	c.cfg.Logger.Trace("[DNSDISC] Updating DNS discovery root", "tree", loc.domain, "err", err)
 	if err != nil {
 		return rootEntry{}, err
 	}
@@ -173,11 +173,11 @@ func (c *Client) resolveEntry(ctx context.Context, domain, hash string) (entry, 
 func (c *Client) doResolveEntry(ctx context.Context, domain, hash string) (entry, error) {
 	wantHash, err := b32format.DecodeString(hash)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base32 hash")
+		return nil, fmt.Errorf("[DNSDISC] invalid base32 hash")
 	}
 	name := hash + "." + domain
 	txts, err := c.cfg.Resolver.LookupTXT(ctx, hash+"."+domain)
-	c.cfg.Logger.Trace("DNS discovery lookup", "name", name, "err", err)
+	c.cfg.Logger.Trace("[DNSDISC] DNS discovery lookup", "name", name, "err", err)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func (it *randomIterator) Next() bool {
 func (it *randomIterator) addTree(url string) error {
 	le, err := parseLink(url)
 	if err != nil {
-		return fmt.Errorf("invalid enrtree URL: %v", err)
+		return fmt.Errorf("[DNSDISC] invalid enrtree URL: %v", err)
 	}
 	it.lc.addLink("", le.str)
 	return nil
@@ -273,7 +273,7 @@ func (it *randomIterator) nextNode() *enode.Node {
 			if err == it.ctx.Err() {
 				return nil // context canceled.
 			}
-			it.c.cfg.Logger.Debug("Error in DNS random node sync", "tree", ct.loc.domain, "err", err)
+			it.c.cfg.Logger.Debug("[DNSDISC] Error in DNS random node sync", "tree", ct.loc.domain, "err", err)
 			continue
 		}
 		if n != nil {

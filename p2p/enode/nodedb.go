@@ -153,7 +153,7 @@ func splitNodeKey(key []byte) (id ID, rest []byte) {
 func nodeItemKey(id ID, ip net.IP, field string) []byte {
 	ip16 := ip.To16()
 	if ip16 == nil {
-		panic(fmt.Errorf("invalid IP (length %d)", len(ip)))
+		panic(fmt.Errorf("[ENODE] invalid IP (length %d)", len(ip)))
 	}
 	return bytes.Join([][]byte{nodeKey(id), ip16, []byte(field)}, []byte{':'})
 }
@@ -244,7 +244,7 @@ func (db *DB) Node(id ID) *Node {
 func mustDecodeNode(id, data []byte) *Node {
 	node := new(Node)
 	if err := rlp.DecodeBytes(data, &node.r); err != nil {
-		panic(fmt.Errorf("p2p/enode: can't decode node %x in DB: %v", id, err))
+		panic(fmt.Errorf("[ENODE] p2p/enode: can't decode node %x in DB: %v", id, err))
 	}
 	// Restore node id cache.
 	copy(node.id[:], id)

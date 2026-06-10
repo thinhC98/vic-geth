@@ -48,7 +48,7 @@ type nameError struct {
 
 func (err nameError) Error() string {
 	if ee, ok := err.err.(entryError); ok {
-		return fmt.Sprintf("invalid %s entry at %s: %v", ee.typ, err.name, ee.err)
+		return fmt.Sprintf("[DNSDISC] invalid %s entry at %s: %v", ee.typ, err.name, ee.err)
 	}
 	return err.name + ": " + err.err.Error()
 }
@@ -59,5 +59,5 @@ type entryError struct {
 }
 
 func (err entryError) Error() string {
-	return fmt.Sprintf("invalid %s entry: %v", err.typ, err.err)
+	return fmt.Sprintf("[DNSDISC] invalid %s entry: %v", err.typ, err.err)
 }

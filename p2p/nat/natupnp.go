@@ -71,7 +71,7 @@ func (n *upnp) ExternalIP() (addr net.IP, err error) {
 	}
 	ip := net.ParseIP(ipString)
 	if ip == nil {
-		return nil, errors.New("bad IP in response")
+		return nil, errors.New("[NAT] bad IP in response")
 	}
 	return ip, nil
 }
@@ -110,7 +110,7 @@ func (n *upnp) internalAddress() (net.IP, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("could not find local address in same net as %v", devaddr)
+	return nil, fmt.Errorf("[NAT] could not find local address in same net as %v", devaddr)
 }
 
 func (n *upnp) DeleteMapping(protocol string, extport, intport int) error {

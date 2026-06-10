@@ -131,7 +131,7 @@ func (r *Record) Load(e Entry) error {
 func (r *Record) Set(e Entry) {
 	blob, err := rlp.EncodeToBytes(e)
 	if err != nil {
-		panic(fmt.Errorf("enr: can't encode %s: %v", e.ENRKey(), err))
+		panic(fmt.Errorf("[ENR] enr: can't encode %s: %v", e.ENRKey(), err))
 	}
 	r.invalidate()
 
@@ -267,9 +267,9 @@ func (r *Record) SetSig(s IdentityScheme, sig []byte) error {
 	switch {
 	// Prevent storing invalid data.
 	case s == nil && sig != nil:
-		panic("enr: invalid call to SetSig with non-nil signature but nil scheme")
+		panic("[ENR] enr: invalid call to SetSig with non-nil signature but nil scheme")
 	case s != nil && sig == nil:
-		panic("enr: invalid call to SetSig with nil signature but non-nil scheme")
+		panic("[ENR] enr: invalid call to SetSig with nil signature but non-nil scheme")
 	// Verify if we have a scheme.
 	case s != nil:
 		if err := s.Verify(r, sig); err != nil {
